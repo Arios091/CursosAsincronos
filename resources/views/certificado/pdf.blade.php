@@ -152,7 +152,7 @@
                     <img src="{{ $logoSrc }}" alt="UNAS" class="logo-img">
 
                     <div class="university">{{ $settings['institution_name'] ?? 'Universidad Nacional Agraria de la Selva' }}</div>
-                    <div class="faculty">Facultad de Recursos Naturales Renovables</div>
+                    <div class="faculty">Oficina de Tecnologias de Información</div>
                     <div class="divider"></div>
 
                     <div class="title">Certificado de Finalizacion</div>
@@ -169,15 +169,23 @@
                     <table class="sig-table" cellspacing="0" cellpadding="0">
                         <tr>
                             <td>
-                                <div style="font-family: 'DejaVu Sans', cursive; font-size: 22px; color: #1a1a2e; margin-bottom: 3px; font-style: italic;">Dr. Jorge Rojas Garcia</div>
+                                @if($firmaRectorSrc)
+                                    <img src="{{ $firmaRectorSrc }}" style="height: 70px; margin-bottom: 3px;">
+                                @else
+                                    <div style="font-family: 'DejaVu Sans', cursive; font-size: 22px; color: #1a1a2e; margin-bottom: 3px; font-style: italic;">Dr. Jorge Rojas Garcia</div>
+                                @endif
                                 <div class="sig-line"></div>
                                 <div class="sig-name">Rector</div>
                                 <div class="sig-role">Universidad Nacional Agraria de la Selva</div>
                             </td>
                             <td>
-                                <div style="font-family: 'DejaVu Sans', cursive; font-size: 22px; color: #1a1a2e; margin-bottom: 3px; font-style: italic;">Ing. Maria Torres Paredes</div>
+                                @if($firmaDirectorSrc)
+                                    <img src="{{ $firmaDirectorSrc }}" style="height: 70px; margin-bottom: 3px;">
+                                @else
+                                    <div style="font-family: 'DejaVu Sans', cursive; font-size: 22px; color: #1a1a2e; margin-bottom: 3px; font-style: italic;">Ing. Carlos Mendoza Rios</div>
+                                @endif
                                 <div class="sig-line"></div>
-                                <div class="sig-name">Directora de la OTI</div>
+                                <div class="sig-name">Director de la OTI</div>
                                 <div class="sig-role">Oficina de Tecnologias de Informacion</div>
                             </td>
                         </tr>

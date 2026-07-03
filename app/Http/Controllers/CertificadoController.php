@@ -50,6 +50,18 @@ class CertificadoController extends Controller
             ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
             : '';
 
+        $firmaRectorSrc = '';
+        $firmaRectorPath = public_path('images/firma-rector.png');
+        if (file_exists($firmaRectorPath)) {
+            $firmaRectorSrc = 'data:image/png;base64,' . base64_encode(file_get_contents($firmaRectorPath));
+        }
+
+        $firmaDirectorSrc = '';
+        $firmaDirectorPath = public_path('images/firma-director.png');
+        if (file_exists($firmaDirectorPath)) {
+            $firmaDirectorSrc = 'data:image/png;base64,' . base64_encode(file_get_contents($firmaDirectorPath));
+        }
+
         $verifyUrl = url('/verificar/' . $codigo);
         $qrCodeSvg = null;
         try {
@@ -61,7 +73,8 @@ class CertificadoController extends Controller
         }
 
         $pdf = PDF::loadView('certificado.pdf', compact(
-            'curso', 'user', 'progresoCurso', 'codigo', 'settings', 'logoSrc', 'qrCodeSvg', 'verifyUrl'
+            'curso', 'user', 'progresoCurso', 'codigo', 'settings', 'logoSrc',
+            'qrCodeSvg', 'verifyUrl', 'firmaRectorSrc', 'firmaDirectorSrc'
         ));
         $pdf->setPaper('A4', 'landscape');
 
