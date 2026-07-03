@@ -11,6 +11,8 @@ fi
 
 cd $APP_DIR
 
+git pull origin main
+
 # Production env
 cp .env.production .env
 
@@ -26,11 +28,20 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
+# Storage link (si no existe)
+php artisan storage:link || true
+
 # Permissions
-chown -R apache:apache storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
+chown -R apache:apache storage bootstrap/cache public/storage
+chmod -R 775 storage bootstrap/cache public/storage
+
+# SELinux (CentOS 7)
+chcon -R -t httpd_sys_rw_content_t storage bootstrap/cache public/storage 2>/dev/null || true
 
 # Migrate
 php artisan migrate --force
+
+# Clear expired pending users
+php artisan clean:expired-pending-users
 
 echo "Deploy complete."

@@ -26,18 +26,32 @@
 
                         <div class="form-group">
                             <label for="password">Contrasena</label>
-                            <input id="password" type="password" class="form-control @error('password') is-invalid @enderror"
-                                name="password" required autocomplete="new-password" placeholder="Minimo 8 caracteres">
+                            <div class="input-group">
+                                <input id="password" type="password" class="form-control @error('password') is-invalid @enderror"
+                                    name="password" required autocomplete="new-password" placeholder="Minimo 8 caracteres">
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('password', this)" tabindex="-1">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                @error('password')
+                                    <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
+                                @enderror
+                            </div>
                             <small class="form-text text-muted">Debe tener al menos 8 caracteres, una mayuscula y un numero.</small>
-                            @error('password')
-                                <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
-                            @enderror
                         </div>
 
                         <div class="form-group">
                             <label for="password-confirm">Confirmar Contrasena</label>
-                            <input id="password-confirm" type="password" class="form-control"
-                                name="password_confirmation" required autocomplete="new-password">
+                            <div class="input-group">
+                                <input id="password-confirm" type="password" class="form-control"
+                                    name="password_confirmation" required autocomplete="new-password">
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('password-confirm', this)" tabindex="-1">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group mb-0">
@@ -58,3 +72,21 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+function togglePassword(inputId, btn) {
+    var input = document.getElementById(inputId);
+    var icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+</script>
+@endpush
