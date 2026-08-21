@@ -48,7 +48,13 @@ class ForgotPasswordController extends Controller
             'expires_at' => Carbon::now()->addHours(3),
         ]);
 
-        $user->notify(new \App\Notifications\ResetPasswordNotification($token, $user->email));
+        try {
+            $user->notify(new \App\Notifications\ResetPasswordNotification($token, $user->email));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'No pudimos enviar el correo de restablecimiento. Intenta nuevamente mas tarde o contacta al administrador.');
+        }
 
         return back()->with('status', 'Te enviamos un enlace de restablecimiento a tu correo institucional.');
     }

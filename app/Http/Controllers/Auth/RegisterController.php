@@ -25,7 +25,16 @@ class RegisterController extends Controller
     {
         $this->validator($request->all())->validate();
 
-        $user = $this->create($request->all());
+        $pendingUser = $this->create($request->all());
+
+        try {
+            $pendingUser->notify(new \App\Notifications\VerifyPendingEmail($pendingUser));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()->route('pending.verification')
+                ->with('error', 'Tu registro fue guardado, pero no pudimos enviar el correo de verificacion. Intenta nuevamente mas tarde o contacta al administrador.');
+        }
 
         return redirect($this->redirectPath());
     }
