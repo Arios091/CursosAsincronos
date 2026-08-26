@@ -92,7 +92,7 @@
 
                     <div class="form-group">
                         <label class="font-weight-bold">Imagen del Curso</label>
-                        <small class="text-muted d-block mb-1">Opcional. Tamaño maximo: 2MB</small>
+                        <small class="text-muted d-block mb-1">Opcional. Tamaño recomendado: <strong>400x225 px (16:9)</strong>. M&aacute;x: 2MB. Se redimensiona autom&aacute;ticamente.</small>
                         <div class="custom-file">
                             <input type="file" class="custom-file-input" wire:model="imagen" accept="image/*" id="imagenCurso">
                             <label class="custom-file-label" for="imagenCurso">{{ $imagen && is_object($imagen) ? $imagen->getClientOriginalName() : ($imagenActual ?: 'Seleccionar imagen...') }}</label>
@@ -409,4 +409,21 @@
             </div>
         </div>
     </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        Livewire.on('mostrar-errores-validacion', function(data) {
+            if (data.errores && data.errores.length > 0) {
+                Swal.fire({
+                    title: '¡Faltan campos obligatorios!',
+                    html: '<ul class="text-start">' + data.errores.map(e => '<li>' + e + '</li>').join('') + '</ul>',
+                    icon: 'error',
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#0B5E2E',
+                    width: '600px',
+                });
+            }
+        });
+    });
+</script>
 </div>

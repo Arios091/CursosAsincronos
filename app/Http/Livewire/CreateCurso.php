@@ -11,6 +11,7 @@ use App\Models\PreguntaCuestionario;
 use App\Models\OpcionPregunta;
 use App\Models\PreguntaExamenFinal;
 use App\Models\OpcionExamenFinal;
+use App\Services\ImageService;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -36,7 +37,7 @@ class CreateCurso extends Component
         'titulo' => 'required|string|max:255',
         'descripcion' => 'required|string',
         'audiencia' => 'required|in:docente,estudiante',
-        'imagen' => 'nullable|image|max:2048',
+        'imagen' => 'nullable|image|max:2048|dimensions:min_width=200,min_height=100',
         'horas' => 'required|integer|min:1',
     ];
 
@@ -47,6 +48,7 @@ class CreateCurso extends Component
         'audiencia.required' => 'Selecciona la audiencia del curso.',
         'imagen.image' => 'El archivo debe ser una imagen.',
         'imagen.max' => 'La imagen no debe superar los 2MB.',
+        'imagen.dimensions' => 'La imagen debe tener al menos 200x100 pixeles.',
         'horas.required' => 'La duracion en horas es obligatoria.',
         'horas.integer' => 'La duracion debe ser un numero entero.',
         'horas.min' => 'La duracion minima es 1 hora.',
@@ -191,77 +193,78 @@ class CreateCurso extends Component
         }
     }
 
-    public function puedeCrear()
+    public function validarTodo()
     {
+        $errores = [];
+
         if (count($this->modulos) === 0) {
-            session()->flash('error', 'Debes agregar al menos un modulo.');
-            return false;
+            $errores[] = 'Debes agregar al menos un modulo.';
         }
 
         foreach ($this->modulos as $modIdx => $modulo) {
             if (empty($modulo['titulo'])) {
-                session()->flash('error', 'El modulo ' . ($modIdx + 1) . ' debe tener un titulo.');
-                return false;
+                $errores[] = 'El modulo ' . ($modIdx + 1) . ' debe tener un titulo.';
             }
 
             if (count($modulo['materiales']) === 0) {
-                session()->flash('error', 'El modulo ' . ($modIdx + 1) . ' debe tener al menos un material.');
-                return false;
+                $errores[] = 'El modulo ' . ($modIdx + 1) . ' debe tener al menos un material.';
             }
 
             foreach ($modulo['materiales'] as $matIdx => $material) {
                 if (empty($material['titulo'])) {
-                    session()->flash('error', 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener un titulo.');
-                    return false;
+                    $errores[] = 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener un titulo.';
                 }
                 if ($material['tipo'] === 'video' && empty($material['url'])) {
-                    session()->flash('error', 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener una URL.');
-                    return false;
+                    $errores[] = 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener una URL.';
                 }
             }
 
             $preguntas = $modulo['cuestionario']['preguntas'];
             if (count($preguntas) === 0) {
-                session()->flash('error', 'El modulo ' . ($modIdx + 1) . ' debe tener al menos una pregunta en su cuestionario.');
-                return false;
+                $errores[] = 'El modulo ' . ($modIdx + 1) . ' debe tener al menos una pregunta en su cuestionario.';
             }
 
             foreach ($preguntas as $pregIdx => $pregunta) {
                 if (empty($pregunta['texto'])) {
-                    session()->flash('error', 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener texto.');
-                    return false;
+                    $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener texto.';
                 }
                 if (count($pregunta['opciones']) < 2) {
-                    session()->flash('error', 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener al menos 2 opciones.');
-                    return false;
+                    $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener al menos 2 opciones.';
                 }
                 $correctas = collect($pregunta['opciones'])->where('es_correcta', true)->count();
                 if ($correctas !== 1) {
-                    session()->flash('error', 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener exactamente 1 opcion correcta.');
-                    return false;
+                    $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener exactamente 1 opcion correcta.';
                 }
             }
         }
 
         if (count($this->examenFinal['preguntas']) === 0) {
-            session()->flash('error', 'El examen final debe tener al menos una pregunta.');
-            return false;
+            $errores[] = 'El examen final debe tener al menos una pregunta.';
         }
 
         foreach ($this->examenFinal['preguntas'] as $pregIdx => $pregunta) {
             if (empty($pregunta['texto'])) {
-                session()->flash('error', 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener texto.');
-                return false;
+                $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener texto.';
             }
             if (count($pregunta['opciones']) < 2) {
-                session()->flash('error', 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener al menos 2 opciones.');
-                return false;
+                $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener al menos 2 opciones.';
             }
             $correctas = collect($pregunta['opciones'])->where('es_correcta', true)->count();
             if ($correctas !== 1) {
-                session()->flash('error', 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener exactamente 1 opcion correcta.');
-                return false;
+                $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener exactamente 1 opcion correcta.';
             }
+        }
+
+        return $errores;
+    }
+
+    public function puedeCrear()
+    {
+        $errores = $this->validarTodo();
+
+        if (count($errores) > 0) {
+            $this->dispatchBrowserEvent('mostrar-errores-validacion', ['errores' => $errores]);
+            return false;
         }
 
         return true;
@@ -275,7 +278,8 @@ class CreateCurso extends Component
 
         $imagenPath = null;
         if ($this->imagen && is_object($this->imagen) && method_exists($this->imagen, 'store')) {
-            $imagenPath = $this->imagen->store('cursos', 'public');
+            $imageService = app(ImageService::class);
+            $imagenPath = $imageService->uploadCurso($this->imagen);
         } elseif ($this->imagen && is_string($this->imagen)) {
             $imagenPath = $this->imagen;
         }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PageSetting;
+use App\Services\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -51,9 +52,23 @@ class PageSettingsController extends Controller
 
         $imageFields = ['logo', 'favicon', 'login_bg', 'carousel_1', 'carousel_2', 'carousel_3', 'carousel_4'];
 
+        $imageService = app(ImageService::class);
+
         foreach ($imageFields as $field) {
             if ($request->hasFile($field)) {
-                $path = $request->file($field)->store('settings', 'public');
+                $file = $request->file($field);
+                
+                if ($field === 'logo') {
+                    $path = $imageService->uploadLogo($file);
+                } elseif ($field === 'favicon') {
+                    $path = $imageService->uploadFavicon($file);
+                } elseif ($field === 'login_bg') {
+                    $path = $imageService->uploadLoginBg($file);
+                } else {
+                    // carousel_1, carousel_2, etc. - treat as hero
+                    $path = $imageService->uploadHero($file);
+                }
+
                 PageSetting::updateOrCreate(
                     ['key' => $field],
                     ['value' => $path, 'type' => 'image']
