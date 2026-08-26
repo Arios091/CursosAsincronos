@@ -121,6 +121,20 @@
                             @if($embedUrl)
                                 @if($materialActual->esYouTube())
                                     <div id="youtube-player-{{ $materialActual->id }}" class="embed-responsive embed-responsive-16by9 mb-3"></div>
+                                @elseif($materialActual->esVimeo())
+                                    <div id="vimeo-player-{{ $materialActual->id }}" class="embed-responsive embed-responsive-16by9 mb-3"></div>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        El video se detectará automáticamente al finalizar. Si no se habilita, haz clic en "Continuar" manualmente.
+                                    </div>
+                                @elseif($materialActual->esGoogleDrive())
+                                    <div class="embed-responsive embed-responsive-16by9 mb-3">
+                                        <iframe class="embed-responsive-item" src="{{ $embedUrl }}" allowfullscreen></iframe>
+                                    </div>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        El video se detectará automáticamente. Si no se habilita, haz clic en "Continuar" manualmente.
+                                    </div>
                                 @else
                                     <div class="embed-responsive embed-responsive-16by9 mb-3">
                                         <iframe class="embed-responsive-item" src="{{ $embedUrl }}" allowfullscreen></iframe>
@@ -282,78 +296,121 @@
 </script>
 @endif
 <script>
+    // ============================================
+    // DETECCIÓN DE FINALIZACIÓN DE VIDEOS
+    // ============================================
     var materialActual = null;
-    var temporizadorInicio = null;
-    var intervaloVideo = null;
+    var playerInstances = {};
 
     @if($moduloActual && $materialActual && !$completado)
         materialActual = {
             id: {{ $materialActual->id }},
             tipo: '{{ $materialActual->tipo }}',
-            esYoutube: {{ $materialActual->esYouTube() ? 'true' : 'false' }},
+            esYouTube: {{ $materialActual->esYouTube() ? 'true' : 'false' }},
+            esVimeo: {{ $materialActual->esVimeo() ? 'true' : 'false' }},
+            esDrive: {{ $materialActual->esGoogleDrive() ? 'true' : 'false' }},
         };
 
         @if($materialActual->tipo === 'video' && $materialActual->esYouTube())
+            // YouTube IFrame API
             var tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
             var firstScriptTag = document.getElementsByTagName('script')[0];
             firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-            var ytPlayer = null;
-            var ytInterval = null;
-            var ytReady = false;
-
             window.onYouTubeIframeAPIReady = function() {
-                ytPlayer = new YT.Player('youtube-player-{{ $materialActual->id }}', {
+                playerInstances.youtube = new YT.Player('youtube-player-{{ $materialActual->id }}', {
                     height: '400',
                     width: '100%',
                     videoId: '{{ $materialActual->getYouTubeId() }}',
+                    playerVars: {
+                        'rel': 0,
+                        'modestbranding': 1,
+                        'playsinline': 1
+                    },
                     events: {
+                        'onReady': function(event) {
+                            console.log('[YouTube] Player ready');
+                            // Ensure we catch ended even if it fires before listener
+                        },
                         'onStateChange': function(event) {
+                            console.log('[YouTube] State:', event.data);
+                            if (event.data === YT.PlayerState.ENDED) {
+                                console.log('[YouTube] Video ended');
+                                habilitarContinuar();
+                            }
+                            // Fallback: also check near-end via progress
                             if (event.data === YT.PlayerState.PLAYING) {
-                                temporizadorInicio = Date.now();
-                                if (ytInterval) clearInterval(ytInterval);
-                                ytInterval = setInterval(function() {
-                                    if (ytPlayer && ytPlayer.getCurrentTime) {
-                                        var pct = ytPlayer.getCurrentTime() / ytPlayer.getDuration();
-                                        if (pct >= 0.9) {
+                                var checkProgress = setInterval(function() {
+                                    try {
+                                        var current = playerInstances.youtube.getCurrentTime();
+                                        var duration = playerInstances.youtube.getDuration();
+                                        if (duration > 0 && current / duration >= 0.95) {
+                                            console.log('[YouTube] 95% reached');
                                             habilitarContinuar();
-                                            clearInterval(ytInterval);
-                                            ytInterval = null;
+                                            clearInterval(checkProgress);
                                         }
-                                    }
+                                    } catch(e) { clearInterval(checkProgress); }
                                 }, 2000);
                             }
-                            if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
-                                if (ytInterval) {
-                                    clearInterval(ytInterval);
-                                    ytInterval = null;
-                                }
-                            }
+                        },
+                        'onError': function(event) {
+                            console.warn('[YouTube] Error:', event.data);
+                            // Enable manual fallback on error
+                            habilitarContinuar();
                         }
                     }
                 });
-                ytReady = true;
             };
         @endif
 
-        @if($materialActual->tipo === 'video' && !$materialActual->esYouTube())
-            // Non-YouTube video - use timer-based approach
-            temporizadorInicio = Date.now();
-            var checkVideoInterval = setInterval(function() {
-                if (temporizadorInicio && (Date.now() - temporizadorInicio) > 30000) {
-                    habilitarContinuar();
-                    clearInterval(checkVideoInterval);
+        @if($materialActual->tipo === 'video' && $materialActual->esVimeo())
+            // Vimeo Player API
+            var vimeoScript = document.createElement('script');
+            vimeoScript.src = 'https://player.vimeo.com/api/player.js';
+            document.head.appendChild(vimeoScript);
+
+            vimeoScript.onload = function() {
+                var iframe = document.querySelector('#vimeo-player-{{ $materialActual->id }}');
+                if (iframe) {
+                    playerInstances.vimeo = new Vimeo.Player(iframe);
+                    playerInstances.vimeo.on('ended', function() {
+                        console.log('[Vimeo] Video ended');
+                        habilitarContinuar();
+                    }).catch(function(err) {
+                        console.warn('[Vimeo] ended event error:', err);
+                    });
+                    // Fallback progress
+                    playerInstances.vimeo.on('timeupdate', function(data) {
+                        if (data.percent >= 0.95) {
+                            console.log('[Vimeo] 95% reached');
+                            habilitarContinuar();
+                        }
+                    });
                 }
-            }, 5000);
+            };
+        @endif
+
+        @if($materialActual->tipo === 'video' && $materialActual->esGoogleDrive())
+            // Google Drive - no API for progress, enable manual after reasonable time
+            // Or show manual button immediately
+            console.log('[Drive] Google Drive video - manual completion');
+            setTimeout(habilitarContinuar, 10000); // 10s fallback
+        @endif
+
+        @if($materialActual->tipo === 'video' && !$materialActual->esYouTube() && !$materialActual->esVimeo() && !$materialActual->esGoogleDrive())
+            // Generic video/iframe - timer fallback
+            console.log('[Video] Generic video - timer fallback');
+            setTimeout(habilitarContinuar, 30000); // 30s fallback
         @endif
     @endif
 
     function habilitarContinuar() {
         var btn = document.getElementById('btnContinuar');
-        if (btn) {
+        if (btn && btn.disabled) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-arrow-right mr-1"></i> Continuar';
+            console.log('[UI] Continuar habilitado para material:', materialActual?.id);
         }
     }
 
@@ -463,4 +520,3 @@
         }
     });
 </script>
-@endpush
