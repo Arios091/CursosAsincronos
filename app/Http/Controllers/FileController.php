@@ -68,17 +68,17 @@ class FileController extends Controller
         $etag = md5($path . $lastModified . $size);
         $noneMatch = $request->header('If-None-Match');
         if ($noneMatch && $noneMatch === $etag) {
-            return response('', 304);
+            return $this->corsResponse('', 304);
         }
 
         $modifiedSince = $request->header('If-Modified-Since');
         if ($modifiedSince && strtotime($modifiedSince) >= $lastModified) {
-            return response('', 304);
+            return $this->corsResponse('', 304);
         }
 
         $content = $disk->get($path);
 
-        return response($content, 200, [
+        return $this->corsResponse($content, 200, [
             'Content-Type' => $mime,
             'Content-Length' => $size,
             'ETag' => $etag,
@@ -86,5 +86,25 @@ class FileController extends Controller
             'Cache-Control' => 'public, max-age=31536000, immutable', // 1 year
             'Content-Disposition' => ResponseHeaderBag::DISPOSITION_INLINE,
         ]);
+    }
+
+    protected function corsResponse($content, int $status, array $headers = [])
+    {
+        $origin = 'https://sistemasdemo.unas.edu.pe'; // Ajusta si hay más orígenes
+        
+        $corsHeaders = array_merge($headers, [
+            'Access-Control-Allow-Origin' => $origin,
+            'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Range, If-Range, If-None-Match, If-Modified-Since',
+            'Access-Control-Expose-Headers' => 'Content-Length, Content-Range, Accept-Ranges',
+            'Access-Control-Max-Age' => '86400',
+        ]);
+
+        // Handle preflight OPTIONS
+        if (request()->method() === 'OPTIONS') {
+            return response('', 204, $corsHeaders);
+        }
+
+        return response($content, $status, $corsHeaders);
     }
 }
