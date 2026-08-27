@@ -22,7 +22,7 @@
         <div class="col-md-4 mb-4">
             <div class="card h-100 shadow-sm">
                 @if($curso->imagen)
-                <img src="{{ asset('storage/' . $curso->imagen) }}" class="card-img-top" alt="{{ $curso->titulo }}" style="height: 180px; object-fit: cover;">
+                <img src="{{ storage_url($curso->imagen) }}" class="card-img-top" alt="{{ $curso->titulo }}" style="height: 180px; object-fit: cover;">
                 @else
                 <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 180px; background: linear-gradient(135deg, #0B5E2E, #0A4A24);">
                     <i class="fas fa-graduation-cap fa-4x text-white opacity-50"></i>

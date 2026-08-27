@@ -19,7 +19,7 @@
                 <iframe class="embed-responsive-item" src="{{ $material->getEmbedUrlAttribute() }}" allowfullscreen></iframe>
             </div>
             @elseif($material->tipo === 'pdf')
-            <embed src="{{ $material->archivo ? asset('storage/' . $material->archivo) : $material->url }}" type="application/pdf" width="100%" height="600px" class="mt-3">
+            <embed src="{{ $material->archivo ? storage_url($material->archivo) : $material->url }}" type="application/pdf" width="100%" height="600px" class="mt-3">
             @elseif($material->tipo === 'cuestionario')
                 @include('cursos._cuestionario', ['material' => $material])
             @endif

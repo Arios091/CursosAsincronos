@@ -92,6 +92,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/files/upload', [FileController::class, 'upload'])->name('files.upload');
     Route::post('/files/delete', [FileController::class, 'delete'])->name('files.delete');
 
+    // Servir archivos de storage sin symlink
+    Route::get('/storage/{path}', [FileController::class, 'serve'])
+        ->where('path', '.*')
+        ->name('storage.serve');
+
     // Certificados
     Route::get('/certificado/{curso}', [CertificadoController::class, 'ver'])->name('certificado.ver');
     Route::get('/certificado/{curso}/descargar', [CertificadoController::class, 'descargar'])->name('certificado.descargar');

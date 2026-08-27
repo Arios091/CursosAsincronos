@@ -100,7 +100,7 @@
                         @error('imagen') <span class="text-danger small">{{ $message }}</span> @enderror
                         @if($imagenActual && !$imagen)
                         <div class="mt-2">
-                            <img src="{{ asset('storage/' . $imagenActual) }}" style="max-height: 100px;" class="border rounded">
+                            <img src="{{ storage_url($imagenActual) }}" style="max-height: 100px;" class="border rounded">
                             <p class="small text-muted mt-1 mb-0">Imagen actual</p>
                         </div>
                         @elseif($imagen)

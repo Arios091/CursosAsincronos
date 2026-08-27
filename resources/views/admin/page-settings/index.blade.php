@@ -183,7 +183,7 @@ $activeTab = old('_tab', 'general');
                                         </div>
                                         @if(isset($settings['logo']) && $settings['logo']->value)
                                         <div class="d-flex align-items-center justify-content-between">
-                                            <img src="{{ asset('storage/' . $settings['logo']->value) }}" style="max-height: 50px;" class="mr-2">
+                                            <img src="{{ storage_url($settings['logo']->value) }}" style="max-height: 50px;" class="mr-2">
                                             <div class="custom-control custom-checkbox">
                                                 <input type="checkbox" name="delete_logo" class="custom-control-input" id="deleteLogo">
                                                 <label class="custom-control-label text-danger" for="deleteLogo">Eliminar</label>
@@ -203,7 +203,7 @@ $activeTab = old('_tab', 'general');
                                         </div>
                                         @if(isset($settings['favicon']) && $settings['favicon']->value)
                                         <div class="d-flex align-items-center justify-content-between">
-                                            <img src="{{ asset('storage/' . $settings['favicon']->value) }}" style="max-height: 32px;" class="mr-2">
+                                            <img src="{{ storage_url($settings['favicon']->value) }}" style="max-height: 32px;" class="mr-2">
                                             <div class="custom-control custom-checkbox">
                                                 <input type="checkbox" name="delete_favicon" class="custom-control-input" id="deleteFavicon">
                                                 <label class="custom-control-label text-danger" for="deleteFavicon">Eliminar</label>
@@ -226,7 +226,7 @@ $activeTab = old('_tab', 'general');
                                         </div>
                                         @if(isset($settings['login_bg']) && $settings['login_bg']->value)
                                         <div class="d-flex align-items-center justify-content-between">
-                                            <img src="{{ asset('storage/' . $settings['login_bg']->value) }}" style="max-height: 50px;" class="mr-2">
+                                            <img src="{{ storage_url($settings['login_bg']->value) }}" style="max-height: 50px;" class="mr-2">
                                             <div class="custom-control custom-checkbox">
                                                 <input type="checkbox" name="delete_login_bg" class="custom-control-input" id="deleteLoginBg">
                                                 <label class="custom-control-label text-danger" for="deleteLoginBg">Eliminar</label>
@@ -253,7 +253,7 @@ $activeTab = old('_tab', 'general');
                                         </div>
                                         @if(isset($settings[$carouselKey]) && $settings[$carouselKey]->value)
                                         <div>
-                                            <img src="{{ asset('storage/' . $settings[$carouselKey]->value) }}" style="max-height: 60px; width: 100%; object-fit: cover;" class="mb-1">
+                                            <img src="{{ storage_url($settings[$carouselKey]->value) }}" style="max-height: 60px; width: 100%; object-fit: cover;" class="mb-1">
                                             <div class="custom-control custom-checkbox">
                                                 <input type="checkbox" name="delete_carousel_{{ $i }}" class="custom-control-input" id="deleteCarousel{{ $i }}">
                                                 <label class="custom-control-label text-danger small" for="deleteCarousel{{ $i }}">Eliminar</label>

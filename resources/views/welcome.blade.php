@@ -16,8 +16,8 @@
     $socialFacebook = $settings['social_facebook'] ?? '';
     $socialTwitter = $settings['social_twitter'] ?? '';
     $socialInstagram = $settings['social_instagram'] ?? '';
-    $logo = isset($settings['logo']) ? asset('storage/' . $settings['logo']) : null;
-    $loginBg = isset($settings['login_bg']) ? asset('storage/' . $settings['login_bg']) : null;
+    $logo = isset($settings['logo']) ? storage_url($settings['logo']) : null;
+    $loginBg = isset($settings['login_bg']) ? storage_url($settings['login_bg']) : null;
 @endphp
 
 <style>
@@ -173,7 +173,7 @@
                             @php $carouselKey = 'carousel_' . $i; @endphp
                             <div class="carousel-item {{ $carouselActive ? 'active' : '' }}">
                                 @if(isset($settings[$carouselKey]) && $settings[$carouselKey])
-                                    <img src="{{ asset('storage/' . $settings[$carouselKey]) }}" alt="Slide {{ $i }}">
+                                    <img src="{{ storage_url($settings[$carouselKey]) }}" alt="Slide {{ $i }}">
                                 @else
                                     <div class="d-flex align-items-center justify-content-center h-100 text-white">
                                         <div class="text-center">
