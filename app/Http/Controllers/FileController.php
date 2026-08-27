@@ -4,13 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 class FileController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth')->except('serve');
+        $this->middleware('auth');
     }
 
     public function upload(Request $request)
@@ -42,69 +41,31 @@ class FileController extends Controller
         return response()->json(['success' => true]);
     }
 
-    /**
-     * Serve files from storage/app/public without requiring symlink
-     * Route: GET /storage/{path}
-     */
-    public function serve(Request $request, string $path)
+    public function verPdf($filename)
     {
-        $disk = Storage::disk('public');
-
-        // Security: prevent directory traversal
-        $path = ltrim($path, '/');
-        if (strpos($path, '..') !== false) {
-            abort(403, 'Invalid path');
+        $path = 'materiales/' . $filename;
+        
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404, 'Archivo no encontrado');
         }
 
-        if (!$disk->exists($path)) {
-            abort(404, 'File not found');
-        }
+        $file = Storage::disk('public')->get($path);
+        $type = Storage::disk('public')->mimeType($path);
 
-        $mime = $disk->mimeType($path);
-        $size = $disk->size($path);
-        $lastModified = $disk->lastModified($path);
-
-        // Handle conditional requests (caching)
-        $etag = md5($path . $lastModified . $size);
-        $noneMatch = $request->header('If-None-Match');
-        if ($noneMatch && $noneMatch === $etag) {
-            return $this->corsResponse('', 304);
-        }
-
-        $modifiedSince = $request->header('If-Modified-Since');
-        if ($modifiedSince && strtotime($modifiedSince) >= $lastModified) {
-            return $this->corsResponse('', 304);
-        }
-
-        $content = $disk->get($path);
-
-        return $this->corsResponse($content, 200, [
-            'Content-Type' => $mime,
-            'Content-Length' => $size,
-            'ETag' => $etag,
-            'Last-Modified' => gmdate('D, d M Y H:i:s', $lastModified) . ' GMT',
-            'Cache-Control' => 'public, max-age=31536000, immutable', // 1 year
-            'Content-Disposition' => ResponseHeaderBag::DISPOSITION_INLINE,
+        return response($file, 200, [
+            'Content-Type' => $type,
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 
-    protected function corsResponse($content, int $status, array $headers = [])
+    public function descargarPdf($filename)
     {
-        $origin = 'https://sistemasdemo.unas.edu.pe'; // Ajusta si hay más orígenes
+        $path = 'materiales/' . $filename;
         
-        $corsHeaders = array_merge($headers, [
-            'Access-Control-Allow-Origin' => $origin,
-            'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
-            'Access-Control-Allow-Headers' => 'Range, If-Range, If-None-Match, If-Modified-Since',
-            'Access-Control-Expose-Headers' => 'Content-Length, Content-Range, Accept-Ranges',
-            'Access-Control-Max-Age' => '86400',
-        ]);
-
-        // Handle preflight OPTIONS
-        if (request()->method() === 'OPTIONS') {
-            return response('', 204, $corsHeaders);
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404, 'Archivo no encontrado');
         }
 
-        return response($content, $status, $corsHeaders);
+        return Storage::disk('public')->download($path, $filename);
     }
 }

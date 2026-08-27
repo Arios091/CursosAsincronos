@@ -15,13 +15,8 @@ if (!function_exists('initials')) {
 }
 
 if (!function_exists('storage_url')) {
-    /**
-     * Generate a URL for a file in storage/app/public
-     * Works with or without the public/storage symlink
-     */
     function storage_url(string $path = ''): string
     {
-        $base = rtrim(config('app.url'), '/') . '/storage';
-        return $path ? $base . '/' . ltrim($path, '/') : $base;
+        return asset('storage/' . ltrim($path, '/'));
     }
 }

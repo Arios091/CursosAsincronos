@@ -294,6 +294,21 @@ class CursoController extends Controller
         ]);
     }
 
+    public function updatePdfScroll(Request $request, Material $material)
+    {
+        $user = auth()->user();
+
+        $progreso = \App\Models\ProgresoMaterial::updateOrCreate(
+            ['user_id' => $user->id, 'material_id' => $material->id],
+            ['scroll_completado' => true, 'material_completado' => true]
+        );
+
+        return response()->json([
+            'success' => true,
+            'scroll_completado' => true,
+        ]);
+    }
+
     public function enviarCuestionario(Request $request, Material $material)
     {
         $user = auth()->user();

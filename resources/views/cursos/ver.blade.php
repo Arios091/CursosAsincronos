@@ -151,12 +151,24 @@
                             @endif
 
                         @elseif($materialActual->tipo === 'pdf')
-                            <div id="pdf-viewer-{{ $materialActual->id }}" class="mb-3" style="min-height: 300px;">
-                                <div class="text-center py-5">
-                                    <i class="fas fa-spinner fa-spin fa-2x"></i>
-                                    <p class="mt-2">Cargando PDF...</p>
+                            @php
+                                $filename = basename($materialActual->archivo);
+                                $pdfUrl = route('archivo.pdf', $filename);
+                                $fileExists = \Illuminate\Support\Facades\Storage::disk('public')->exists('materiales/' . $filename);
+                            @endphp
+                            
+                            @if($fileExists)
+                                <div style="width: 100%; height: 600px; overflow: hidden; border: 1px solid #dee2e6; border-radius: 4px;">
+                                    <embed src="{{ $pdfUrl }}" type="application/pdf" style="width: 100%; height: 100%;" id="pdf-embed-{{ $materialActual->id }}">
                                 </div>
-                            </div>
+                                <a href="{{ route('archivo.pdf.descargar', $filename) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                                    <i class="fas fa-download mr-1"></i> Descargar PDF
+                                </a>
+                            @else
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i> Archivo PDF no encontrado en almacenamiento.
+                                </div>
+                            @endif
 
                         @elseif($materialActual->tipo === 'cuestionario')
                             <div class="alert alert-warning">Cuestionario tipo material legacy.</div>
@@ -240,74 +252,58 @@
 
 @push('scripts')
 @if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado)
-<script src="{{ asset('js/pdfjs/pdf.min.js') }}"></script>
 <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ asset('js/pdfjs/pdf.worker.min.js') }}';
-
+    // Scroll tracking para <embed> PDF - 90% del scroll = completado
     document.addEventListener('DOMContentLoaded', function() {
-        var pdfUrl = '{{ $materialActual->archivo ? storage_url($materialActual->archivo) : $materialActual->url }}';
-        var container = document.getElementById('pdf-viewer-{{ $materialActual->id }}');
+        var embed = document.getElementById('pdf-embed-{{ $materialActual->id }}');
+        var materialId = {{ $materialActual->id }};
+        var scrollCompletado = false;
 
-        if (!container) {
-            console.error('[PDF] Container not found: pdf-viewer-{{ $materialActual->id }}');
-            habilitarContinuar();
+        if (!embed) {
+            console.warn('[PDF] Embed no encontrado para material:', materialId);
             return;
         }
 
-        // Show loading state
-        container.innerHTML = '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Cargando PDF...</p></div>';
+        // El contenedor padre del embed (el div con overflow:hidden)
+        var container = embed.parentElement;
 
-        pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
-            container.innerHTML = '';
-            var wrapper = document.createElement('div');
-            wrapper.style.maxHeight = '500px';
-            wrapper.style.overflowY = 'auto';
-            wrapper.style.border = '1px solid #de2e6';
-            wrapper.style.borderRadius = '4px';
-            container.appendChild(wrapper);
+        function checkScroll() {
+            var scrollTop = container.scrollTop;
+            var scrollHeight = container.scrollHeight - container.clientHeight;
 
-            var totalPages = pdf.numPages;
-            var paginaActual = 1;
-
-            function renderSiguientePagina() {
-                if (paginaActual > totalPages) {
-                    wrapper.addEventListener('scroll', function onScroll() {
-                        var diff = wrapper.scrollHeight - wrapper.scrollTop - wrapper.clientHeight;
-                        if (diff < 50) {
-                            habilitarContinuar();
-                            wrapper.removeEventListener('scroll', onScroll);
-                        }
-                    });
-                    return;
+            if (scrollHeight > 0 && (scrollTop / scrollHeight) >= 0.9) {
+                if (!scrollCompletado) {
+                    scrollCompletado = true;
+                    console.log('[PDF] 90% scroll alcanzado, marcando completado...');
+                    setTimeout(marcarPdfCompletado, 1000); // debounce 1s
                 }
-                var num = paginaActual++;
-                pdf.getPage(num).then(function(page) {
-                    var viewport = page.getViewport({ scale: 1.0 });
-                    var canvas = document.createElement('canvas');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    canvas.style.width = '100%';
-                    canvas.style.height = 'auto';
-                    canvas.style.display = 'block';
-                    wrapper.appendChild(canvas);
-                    return page.render({
-                        canvasContext: canvas.getContext('2d'),
-                        viewport: viewport
-                    }).promise;
-                }).then(function() {
-                    renderSiguientePagina();
-                }).catch(function(err) {
-                    console.error('Error rendering page:', err);
-                    renderSiguientePagina();
-                });
             }
+        }
 
-            renderSiguientePagina();
-        }).catch(function(err) {
-            console.error('Error loading PDF:', err);
-            container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle mr-1"></i>Error al cargar el PDF. <a href="' + pdfUrl + '" target="_blank">Abrir en nueva pestaña</a></div>';
-            habilitarContinuar();
-        });
+        container.addEventListener('scroll', checkScroll);
+
+        function marcarPdfCompletado() {
+            fetch('/material/' + materialId + '/pdf-scroll', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                },
+                body: JSON.stringify({})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.scroll_completado) {
+                    console.log('[PDF] Completado confirmado por servidor');
+                    habilitarContinuar();
+                    // Recargar para actualizar UI
+                    setTimeout(function() { location.reload(); }, 500);
+                }
+            })
+            .catch(function(err) {
+                console.error('[PDF] Error marcando completado:', err);
+            });
+        }
     });
 </script>
 @endif
