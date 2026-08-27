@@ -244,9 +244,15 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ asset('js/pdfjs/pdf.worker.min.js') }}';
 
-    (function() {
+    document.addEventListener('DOMContentLoaded', function() {
         var pdfUrl = '{{ $materialActual->archivo ? storage_url($materialActual->archivo) : $materialActual->url }}';
         var container = document.getElementById('pdf-viewer-{{ $materialActual->id }}');
+
+        if (!container) {
+            console.error('[PDF] Container not found: pdf-viewer-{{ $materialActual->id }}');
+            habilitarContinuar();
+            return;
+        }
 
         // Show loading state
         container.innerHTML = '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Cargando PDF...</p></div>';
@@ -292,7 +298,7 @@
                     renderSiguientePagina();
                 }).catch(function(err) {
                     console.error('Error rendering page:', err);
-                    renderSiguientePagina(); // Continue to next page
+                    renderSiguientePagina();
                 });
             }
 
@@ -300,9 +306,9 @@
         }).catch(function(err) {
             console.error('Error loading PDF:', err);
             container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle mr-1"></i>Error al cargar el PDF. <a href="' + pdfUrl + '" target="_blank">Abrir en nueva pestaña</a></div>';
-            habilitarContinuar(); // Allow manual continue on error
+            habilitarContinuar();
         });
-    })();
+    });
 </script>
 @endif
 <script>
