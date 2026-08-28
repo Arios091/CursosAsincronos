@@ -522,20 +522,22 @@ class CursoController extends Controller
 
     public function verificarCertificadoPublico($codigo)
     {
-        $progreso = ProgresoCurso::whereRaw(
-            "LPAD(CAST(id AS TEXT), 6, '0') = ?", [$codigo]
-        )->with(['user', 'curso'])->first();
+        $id = (int) $codigo;
+        $progreso = ProgresoCurso::with(['user', 'curso'])->find($id);
+
+        if (!$progreso || !$progreso->completado || str_pad($progreso->id, 6, '0', STR_PAD_LEFT) !== $codigo) {
+            abort(404);
+        }
 
         return view('verificar.certificado', compact('progreso', 'codigo'));
     }
 
     public function verificarCertificado($codigo)
     {
-        $progreso = ProgresoCurso::whereRaw(
-            "LPAD(CAST(id AS TEXT), 6, '0') = ?", [$codigo]
-        )->with(['user', 'curso'])->first();
+        $id = (int) $codigo;
+        $progreso = ProgresoCurso::with(['curso'])->find($id);
 
-        if (!$progreso || !$progreso->completado) {
+        if (!$progreso || !$progreso->completado || str_pad($progreso->id, 6, '0', STR_PAD_LEFT) !== $codigo) {
             return response()->json([
                 'valido' => false,
                 'message' => 'Certificado no encontrado o invalido',
@@ -545,9 +547,7 @@ class CursoController extends Controller
         return response()->json([
             'valido' => true,
             'certificado' => $codigo,
-            'estudiante' => $progreso->user->name,
-            'curso' => $progreso->curso->titulo,
-            'fecha' => $progreso->updated_at->format('d/m/Y'),
+            'fecha_emision' => $progreso->updated_at->format('d/m/Y'),
         ]);
     }
 }

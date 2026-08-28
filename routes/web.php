@@ -37,11 +37,12 @@ Route::get('/verificar/{codigo}', [CursoController::class, 'verificarCertificado
     ->name('verificar.certificado');
 
 Route::get('/api/verificar/{codigo}', [CursoController::class, 'verificarCertificado'])
-    ->name('api.verificar.certificado');
+    ->name('api.verificar.certificado')
+    ->middleware('throttle:20,1');
 
 // Autenticacion
 Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
-Route::post('/register', [RegisterController::class, 'register']);
+Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:5,1');
 
 Route::get('/registro/verificar', [PendingVerificationController::class, 'showPending'])
     ->name('pending.verification');
@@ -49,13 +50,13 @@ Route::get('/registro/verificar/{token}', [PendingVerificationController::class,
     ->name('pending.verify');
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [LoginController::class, 'login']);
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::get('/password/reset', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
-Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email')->middleware('throttle:3,1');
 Route::get('/password/reset/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
-Route::post('/password/reset', [ResetPasswordController::class, 'reset'])->name('password.update');
+Route::post('/password/reset', [ResetPasswordController::class, 'reset'])->name('password.update')->middleware('throttle:3,1');
 
 // Rutas autenticadas
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -76,12 +77,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/material/{material}/pdf-scroll', [CursoController::class, 'updatePdfScroll'])
         ->name('material.pdf-scroll');
     Route::post('/cursos/material/{material}/cuestionario', [CursoController::class, 'enviarCuestionario'])
-        ->name('cursos.cuestionario');
+        ->name('cursos.cuestionario')
+        ->middleware('throttle:10,1');
     Route::post('/cursos/modulo/{modulo}/cuestionario', [CursoController::class, 'enviarCuestionarioModulo'])
-        ->name('cursos.cuestionario.modulo');
+        ->name('cursos.cuestionario.modulo')
+        ->middleware('throttle:10,1');
 
     Route::post('/cursos/{curso}/examen-final', [CursoController::class, 'enviarExamenFinal'])
-        ->name('cursos.examen-final');
+        ->name('cursos.examen-final')
+        ->middleware('throttle:5,1');
 
     Route::get('/cursos/{curso}/completado', [CursoController::class, 'completado'])->name('cursos.completado');
 

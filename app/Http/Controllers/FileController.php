@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Material;
+use App\Models\ProgresoCurso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -43,6 +45,10 @@ class FileController extends Controller
 
     public function verPdf($filename)
     {
+        $material = Material::where('archivo', 'materiales/' . $filename)->firstOrFail();
+        
+        $this->authorizeMaterialAccess($material);
+
         $path = 'materiales/' . $filename;
         
         if (!Storage::disk('public')->exists($path)) {
@@ -60,6 +66,10 @@ class FileController extends Controller
 
     public function descargarPdf($filename)
     {
+        $material = Material::where('archivo', 'materiales/' . $filename)->firstOrFail();
+        
+        $this->authorizeMaterialAccess($material);
+
         $path = 'materiales/' . $filename;
         
         if (!Storage::disk('public')->exists($path)) {
@@ -67,5 +77,28 @@ class FileController extends Controller
         }
 
         return Storage::disk('public')->download($path, $filename);
+    }
+
+    protected function authorizeMaterialAccess(Material $material)
+    {
+        $user = auth()->user();
+        
+        // Admin global y admin tienen acceso a todo
+        if ($user->isAdmin() || $user->isAdminGlobal()) {
+            return true;
+        }
+
+        $curso = $material->modulo->curso;
+        
+        // Verificar que el usuario está inscrito en el curso
+        $progreso = ProgresoCurso::where('user_id', $user->id)
+            ->where('curso_id', $curso->id)
+            ->first();
+
+        if (!$progreso) {
+            abort(403, 'No tienes acceso a este material. Debes inscribirte en el curso primero.');
+        }
+
+        return true;
     }
 }

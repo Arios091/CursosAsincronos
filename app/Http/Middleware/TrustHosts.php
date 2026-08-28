@@ -14,7 +14,8 @@ class TrustHosts extends Middleware
     public function hosts()
     {
         return [
-            $this->allSubdomainsOfApplicationUrl(),
+            'sgd.unas.edu.pe',
+            'sistemasdemo.unas.edu.pe',
         ];
     }
 }
