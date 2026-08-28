@@ -82,14 +82,35 @@ class ImageService
                 imagedestroy($tempCrop);
             }
 
-            // Save as WebP (quality 85)
-            imagewebp($dst, $tempPath, 85);
+            // Guardar: preferir WebP; si no hay soporte, usar JPEG/PNG como respaldo
+            $saved = false;
+            if (function_exists('imagewebp')) {
+                $webpPath = $tempPath;
+                if (@imagewebp($dst, $webpPath, 85) && @file_exists($webpPath) && @filesize($webpPath) > 0) {
+                    $savedPath = $webpPath;
+                    $saved = true;
+                }
+            }
+            if (!$saved && function_exists('imagejpeg')) {
+                $jpegPath = sys_get_temp_dir() . '/' . Str::uuid() . '.jpg';
+                $white = imagecolorallocate($dst, 255, 255, 255);
+                imagefilledrectangle($dst, 0, 0, $width - 1, $height - 1, $white);
+                if (@imagejpeg($dst, $jpegPath, 88) && @file_exists($jpegPath) && @filesize($jpegPath) > 0) {
+                    $savedPath = $jpegPath;
+                    $saved = true;
+                }
+            }
+
+            if (!$saved) {
+                throw new \Exception('No se pudo guardar la imagen procesada.');
+            }
 
             // Upload to storage
-            Storage::disk($this->disk)->put($folder . '/' . $filename, file_get_contents($tempPath));
+            Storage::disk($this->disk)->put($folder . '/' . $filename, file_get_contents($savedPath));
 
             // Cleanup
             @unlink($tempPath);
+            if (isset($jpegPath)) @unlink($jpegPath);
             imagedestroy($src);
             imagedestroy($dst);
 
@@ -98,6 +119,7 @@ class ImageService
         } catch (\Throwable $e) {
             // Cleanup on error
             @unlink($tempPath);
+            if (isset($jpegPath)) @unlink($jpegPath);
             if (isset($src)) imagedestroy($src);
             if (isset($dst)) imagedestroy($dst);
             
@@ -144,6 +166,14 @@ class ImageService
                     return @imagecreatefromwebp($path);
                 }
                 return @imagecreatefromstring($bytes);
+            case IMAGETYPE_ICO:
+                // GD >= 2.1 puede decodificar ICO desde string; si no, retorna null
+                // y el caller guarda el archivo original como respaldo.
+                $ico = @imagecreatefromstring($bytes);
+                if ($ico) {
+                    return $ico;
+                }
+                return null;
             default:
                 // Fallback: intentar con cada loader de GD por si el tipo no fue detectado
                 return $this->tryAllGdLoaders($path, $bytes);
