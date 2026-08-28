@@ -116,27 +116,56 @@ class ImageService
 
     protected function createImageFromFile(UploadedFile $file)
     {
-        $mime = $file->getMimeType();
         $path = $file->getRealPath();
+        $bytes = @file_get_contents($path);
+        if ($bytes === false) {
+            return null;
+        }
 
-        switch ($mime) {
-            case 'image/jpeg':
-            case 'image/jpg':
-                return @imagecreatefromjpeg($path);
-            case 'image/png':
-                $img = @imagecreatefrompng($path);
+        // Detectar el tipo real de imagen por su contenido (magic bytes),
+        // no confiar unicamente en el MIME reportado por el navegador/carga.
+        $info = @getimagesizefromstring($bytes);
+        $type = $info ? ($info[2] ?? null) : null;
+
+        switch ($type) {
+            case IMAGETYPE_JPEG:
+                return @imagecreatefromstring($bytes);
+            case IMAGETYPE_PNG:
+                $img = @imagecreatefromstring($bytes);
                 if ($img) {
                     imagealphablending($img, false);
                     imagesavealpha($img, true);
                 }
                 return $img;
-            case 'image/webp':
-                return @imagecreatefromwebp($path);
-            case 'image/gif':
-                return @imagecreatefromgif($path);
+            case IMAGETYPE_GIF:
+                return @imagecreatefromstring($bytes);
+            case IMAGETYPE_WEBP:
+                if (function_exists('imagecreatefromwebp')) {
+                    return @imagecreatefromwebp($path);
+                }
+                return @imagecreatefromstring($bytes);
             default:
-                return null;
+                // Fallback: intentar con cada loader de GD por si el tipo no fue detectado
+                return $this->tryAllGdLoaders($path, $bytes);
         }
+    }
+
+    protected function tryAllGdLoaders(string $path, string $bytes)
+    {
+        foreach (['imagecreatefromjpeg' => $path, 'imagecreatefrompng' => $path, 'imagecreatefromgif' => $path, 'imagecreatefromstring' => $bytes] as $fn => $arg) {
+            if (!function_exists($fn)) {
+                continue;
+            }
+            $img = @$fn($arg);
+            if ($img) {
+                if (strpos($fn, 'png') !== false) {
+                    imagealphablending($img, false);
+                    imagesavealpha($img, true);
+                }
+                return $img;
+            }
+        }
+        return null;
     }
 
     protected function hexToRgb(string $hex): array
