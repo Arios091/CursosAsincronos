@@ -52,6 +52,17 @@ class PageSettingsController extends Controller
 
         $imageFields = ['logo', 'favicon', 'login_bg', 'carousel_1', 'carousel_2', 'carousel_3', 'carousel_4'];
 
+        // Validar imagenes: solo archivos de imagen, maximo 5MB
+        $validation = [];
+        foreach ($imageFields as $field) {
+            if ($field === 'favicon') {
+                $validation[$field] = 'nullable|file|mimes:jpg,jpeg,png,webp,gif,ico|max:5120';
+            } else {
+                $validation[$field] = 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:5120';
+            }
+        }
+        $request->validate($validation);
+
         $imageService = app(ImageService::class);
 
         foreach ($imageFields as $field) {

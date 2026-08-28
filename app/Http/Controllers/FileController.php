@@ -31,7 +31,7 @@ class FileController extends Controller
         $type = Storage::disk('public')->mimeType($path);
 
         // Solo servir imagenes
-        if (!in_array($type, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'], true)) {
+        if (!in_array($type, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon'], true)) {
             abort(404);
         }
 
@@ -62,7 +62,7 @@ class FileController extends Controller
         }
 
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico'], true)) {
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'ico'], true)) {
             return null;
         }
 

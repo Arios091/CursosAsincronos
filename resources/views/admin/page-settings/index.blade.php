@@ -181,6 +181,7 @@ $activeTab = old('_tab', 'general');
                                             <input type="file" name="logo" class="custom-file-input" id="logoInput" accept="image/*">
                                             <label class="custom-file-label" for="logoInput">Seleccionar archivo</label>
                                         </div>
+                                        <small class="form-text text-muted mb-1"><i class="fas fa-info-circle mr-1"></i>Recomendado: <b>400 × 150 px</b> (PNG con fondo transparente). Se muestra a 40px de alto en el encabezado.</small>
                                         @if(isset($settings['logo']) && $settings['logo']->value)
                                         <div class="d-flex align-items-center justify-content-between">
                                             <img src="{{ storage_url($settings['logo']->value) }}" style="max-height: 50px;" class="mr-2">
@@ -201,6 +202,7 @@ $activeTab = old('_tab', 'general');
                                             <input type="file" name="favicon" class="custom-file-input" id="faviconInput" accept="image/x-icon,image/png">
                                             <label class="custom-file-label" for="faviconInput">Seleccionar archivo</label>
                                         </div>
+                                        <small class="form-text text-muted mb-1"><i class="fas fa-info-circle mr-1"></i>Recomendado: <b>32 × 32 px</b> (PNG o ICO). Icono de la pestana del navegador.</small>
                                         @if(isset($settings['favicon']) && $settings['favicon']->value)
                                         <div class="d-flex align-items-center justify-content-between">
                                             <img src="{{ storage_url($settings['favicon']->value) }}" style="max-height: 32px;" class="mr-2">
@@ -224,6 +226,7 @@ $activeTab = old('_tab', 'general');
                                             <input type="file" name="login_bg" class="custom-file-input" id="loginBgInput" accept="image/*">
                                             <label class="custom-file-label" for="loginBgInput">Seleccionar archivo</label>
                                         </div>
+                                        <small class="form-text text-muted mb-1"><i class="fas fa-info-circle mr-1"></i>Recomendado: <b>1920 × 1080 px</b> (fondo a pantalla completa).</small>
                                         @if(isset($settings['login_bg']) && $settings['login_bg']->value)
                                         <div class="d-flex align-items-center justify-content-between">
                                             <img src="{{ storage_url($settings['login_bg']->value) }}" style="max-height: 50px;" class="mr-2">
@@ -251,6 +254,7 @@ $activeTab = old('_tab', 'general');
                                             <input type="file" name="carousel_{{ $i }}" class="custom-file-input" id="carousel{{ $i }}Input" accept="image/*">
                                             <label class="custom-file-label" for="carousel{{ $i }}Input">Seleccionar</label>
                                         </div>
+                                        <small class="form-text text-muted mb-1"><i class="fas fa-info-circle mr-1"></i>Recomendado: <b>1920 × 600 px</b> (banner de la portada).</small>
                                         @if(isset($settings[$carouselKey]) && $settings[$carouselKey]->value)
                                         <div>
                                             <img src="{{ storage_url($settings[$carouselKey]->value) }}" style="max-height: 60px; width: 100%; object-fit: cover;" class="mb-1">
