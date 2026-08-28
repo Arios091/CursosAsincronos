@@ -158,8 +158,12 @@
                             @endphp
                             
                             @if($fileExists)
-                                <div style="width: 100%; height: 600px; overflow: hidden; border: 1px solid #dee2e6; border-radius: 4px;">
-                                    <embed src="{{ $pdfUrl }}" type="application/pdf" style="width: 100%; height: 100%;" id="pdf-embed-{{ $materialActual->id }}">
+                                <div id="pdf-viewer-{{ $materialActual->id }}" class="pdf-viewer"
+                                     style="width: 100%; height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #525659;"
+                                     data-pdf-url="{{ $pdfUrl }}" data-material-id="{{ $materialActual->id }}">
+                                    <div class="pdf-loading text-center py-5" style="color:#fff;">
+                                        <i class="fas fa-spinner fa-spin mr-1"></i> Cargando PDF...
+                                    </div>
                                 </div>
                                 <a href="{{ route('archivo.pdf.descargar', $filename) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
                                     <i class="fas fa-download mr-1"></i> Descargar PDF
@@ -253,34 +257,18 @@
 @push('scripts')
 @if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado)
 <script>
-    // Scroll tracking para <embed> PDF - 90% del scroll = completado
-    document.addEventListener('DOMContentLoaded', function() {
-        var embed = document.getElementById('pdf-embed-{{ $materialActual->id }}');
+    // Lector de PDF con pdf.js + deteccion de scroll hasta el final (90%)
+    (function() {
+        var viewer = document.getElementById('pdf-viewer-{{ $materialActual->id }}');
         var materialId = {{ $materialActual->id }};
         var scrollCompletado = false;
 
-        if (!embed) {
-            console.warn('[PDF] Embed no encontrado para material:', materialId);
+        if (!viewer) {
+            console.warn('[PDF] Viewer no encontrado para material:', materialId);
             return;
         }
 
-        // El contenedor padre del embed (el div con overflow:hidden)
-        var container = embed.parentElement;
-
-        function checkScroll() {
-            var scrollTop = container.scrollTop;
-            var scrollHeight = container.scrollHeight - container.clientHeight;
-
-            if (scrollHeight > 0 && (scrollTop / scrollHeight) >= 0.9) {
-                if (!scrollCompletado) {
-                    scrollCompletado = true;
-                    console.log('[PDF] 90% scroll alcanzado, marcando completado...');
-                    setTimeout(marcarPdfCompletado, 1000); // debounce 1s
-                }
-            }
-        }
-
-        container.addEventListener('scroll', checkScroll);
+        var pdfUrl = viewer.getAttribute('data-pdf-url');
 
         function marcarPdfCompletado() {
             fetch('/material/' + materialId + '/pdf-scroll', {
@@ -295,8 +283,9 @@
             .then(function(data) {
                 if (data.scroll_completado) {
                     console.log('[PDF] Completado confirmado por servidor');
-                    habilitarContinuar();
-                    // Recargar para actualizar UI
+                    if (typeof habilitarContinuar === 'function') {
+                        habilitarContinuar();
+                    }
                     setTimeout(function() { location.reload(); }, 500);
                 }
             })
@@ -304,7 +293,95 @@
                 console.error('[PDF] Error marcando completado:', err);
             });
         }
-    });
+
+        // Deteccion de scroll: 90% del total desplazado
+        var debounceTimer = null;
+        function checkScroll() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                var scrollTop = viewer.scrollTop;
+                var maxScroll = viewer.scrollHeight - viewer.clientHeight;
+                if (maxScroll > 0 && (scrollTop / maxScroll) >= 0.9) {
+                    if (!scrollCompletado) {
+                        scrollCompletado = true;
+                        console.log('[PDF] 90% scroll alcanzado, marcando completado...');
+                        marcarPdfCompletado();
+                    }
+                }
+            }, 300);
+        }
+        viewer.addEventListener('scroll', checkScroll, { passive: true });
+
+        // Cargar pdf.js solo si no esta globalmente disponible
+        function loadScript(src, callback) {
+            if (document.querySelector('script[src="' + src + '"]')) {
+                callback();
+                return;
+            }
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = callback;
+            s.onerror = function() { console.error('[PDF] Error cargando pdf.js'); };
+            document.head.appendChild(s);
+        }
+
+        loadScript('{{ asset('vendor/pdfjs/pdf.min.js') }}', function() {
+            var pdfjsLib = window['pdfjs-dist/build/pdf'];
+            if (!pdfjsLib) { pdfjsLib = window.pdfjsLib; }
+            if (!pdfjsLib) {
+                console.error('[PDF] pdf.js no disponible');
+                viewer.querySelector('.pdf-loading').innerHTML = 'No se pudo cargar el visor PDF. Usa "Descargar PDF" para revisarlo.';
+                return;
+            }
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ asset('vendor/pdfjs/pdf.worker.min.js') }}';
+
+            pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                viewer.querySelector('.pdf-loading')?.remove();
+
+                var pageNum = pdf.numPages;
+                var scale = 1.2;
+
+                function renderPage(n) {
+                    return pdf.getPage(n).then(function(page) {
+                        var viewport = page.getViewport({ scale: scale });
+                        var canvas = document.createElement('canvas');
+                        canvas.className = 'pdf-page';
+                        canvas.style.display = 'block';
+                        canvas.style.margin = '0 auto 8px auto';
+                        canvas.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+                        canvas.style.background = '#fff';
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        var ctx = canvas.getContext('2d');
+                        return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+                            viewer.appendChild(canvas);
+                        });
+                    });
+                }
+
+                // Renderizar todas las paginas secuencialmente
+                var p = Promise.resolve();
+                for (var i = 1; i <= pageNum; i++) {
+                    (function(n){ p = p.then(function(){ return renderPage(n); }); })(i);
+                }
+
+                // Si el PDF tiene una sola pagina, considerar completado al render
+                p.then(function() {
+                    if (pageNum <= 1) {
+                        console.log('[PDF] PDF de una sola pagina, se marca completado');
+                        if (!scrollCompletado) {
+                            scrollCompletado = true;
+                            marcarPdfCompletado();
+                        }
+                    }
+                });
+            }).catch(function(err) {
+                console.error('[PDF] Error al leer PDF:', err);
+                viewer.querySelector('.pdf-loading').innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF" para revisarlo.';
+            });
+        });
+    })();
 </script>
 @endif
 <script>

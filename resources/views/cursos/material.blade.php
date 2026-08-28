@@ -19,7 +19,22 @@
                 <iframe class="embed-responsive-item" src="{{ $material->getEmbedUrlAttribute() }}" allowfullscreen></iframe>
             </div>
             @elseif($material->tipo === 'pdf')
-            <embed src="{{ $material->archivo ? storage_url($material->archivo) : $material->url }}" type="application/pdf" width="100%" height="600px" class="mt-3">
+                @php
+                    $filename = basename($material->archivo ?? $material->url);
+                    $pdfUrl = $material->archivo ? route('archivo.pdf', $filename) : $material->url;
+                @endphp
+                <div id="pdf-viewer-material" class="pdf-viewer"
+                     style="width: 100%; height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #525659; margin-top: 1rem;"
+                     data-pdf-url="{{ $pdfUrl }}">
+                    <div class="pdf-loading text-center py-5" style="color:#fff;">
+                        <i class="fas fa-spinner fa-spin mr-1"></i> Cargando PDF...
+                    </div>
+                </div>
+                @if($material->archivo)
+                <a href="{{ route('archivo.pdf.descargar', $filename) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="fas fa-download mr-1"></i> Descargar PDF
+                </a>
+                @endif
             @elseif($material->tipo === 'cuestionario')
                 @include('cursos._cuestionario', ['material' => $material])
             @endif
@@ -27,3 +42,59 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+@if($material->tipo === 'pdf')
+<script>
+    (function() {
+        var viewer = document.getElementById('pdf-viewer-material');
+        if (!viewer) return;
+        var pdfUrl = viewer.getAttribute('data-pdf-url');
+
+        function loadScript(src, callback) {
+            if (document.querySelector('script[src="' + src + '"]')) { callback(); return; }
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = callback;
+            s.onerror = function() { console.error('Error cargando pdf.js'); };
+            document.head.appendChild(s);
+        }
+
+        loadScript('{{ asset('vendor/pdfjs/pdf.min.js') }}', function() {
+            var pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+            if (!pdfjsLib) {
+                viewer.querySelector('.pdf-loading').innerHTML = 'No se pudo cargar el visor PDF. Usa "Descargar PDF".';
+                return;
+            }
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ asset('vendor/pdfjs/pdf.worker.min.js') }}';
+
+            pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                viewer.querySelector('.pdf-loading')?.remove();
+                var scale = 1.2;
+                function renderPage(n) {
+                    return pdf.getPage(n).then(function(page) {
+                        var viewport = page.getViewport({ scale: scale });
+                        var canvas = document.createElement('canvas');
+                        canvas.style.display = 'block';
+                        canvas.style.margin = '0 auto 8px auto';
+                        canvas.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+                        canvas.style.background = '#fff';
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        return page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise.then(function() {
+                            viewer.appendChild(canvas);
+                        });
+                    });
+                }
+                var p = Promise.resolve();
+                for (var i = 1; i <= pdf.numPages; i++) {
+                    (function(n){ p = p.then(function(){ return renderPage(n); }); })(i);
+                }
+            }).catch(function() {
+                viewer.querySelector('.pdf-loading').innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF".';
+            });
+        });
+    })();
+</script>
+@endif
+@endpush
