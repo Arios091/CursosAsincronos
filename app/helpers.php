@@ -17,6 +17,9 @@ if (!function_exists('initials')) {
 if (!function_exists('storage_url')) {
     function storage_url(string $path = ''): string
     {
-        return asset('storage/' . ltrim($path, '/'));
+        if ($path === '') {
+            return '';
+        }
+        return url('/archivo/imagen/' . ltrim($path, '/'));
     }
 }

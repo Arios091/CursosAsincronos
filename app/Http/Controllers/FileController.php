@@ -9,9 +9,64 @@ use Illuminate\Support\Facades\Storage;
 
 class FileController extends Controller
 {
+    protected const IMAGE_FOLDERS = ['cursos', 'site', 'hero'];
+
     public function __construct()
     {
-        $this->middleware('auth');
+        $this->middleware('auth')->except(['imagen']);
+    }
+
+    public function imagen($path)
+    {
+        // Prevenir path traversal
+        $path = $this->sanitizeImagePath($path);
+        if ($path === null) {
+            abort(404);
+        }
+
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404);
+        }
+
+        $type = Storage::disk('public')->mimeType($path);
+
+        // Solo servir imagenes
+        if (!in_array($type, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'], true)) {
+            abort(404);
+        }
+
+        $file = Storage::disk('public')->get($path);
+
+        return response($file, 200, [
+            'Content-Type' => $type,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    protected function sanitizeImagePath(string $path): ?string
+    {
+        $path = str_replace('\\', '/', $path);
+        $path = trim($path, '/');
+
+        // Rechazar cualquier intento de subir de directorio
+        if (strpos($path, '..') !== false) {
+            return null;
+        }
+
+        $segments = explode('/', $path);
+        $folder = $segments[0] ?? '';
+
+        // Solo permitir carpetas de imagenes y archivos con extension de imagen
+        if (!in_array($folder, self::IMAGE_FOLDERS, true)) {
+            return null;
+        }
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico'], true)) {
+            return null;
+        }
+
+        return $path;
     }
 
     public function upload(Request $request)

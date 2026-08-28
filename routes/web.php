@@ -33,6 +33,12 @@ Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
 
+// Imagenes publicas (cursos, site, hero) - servidas via PHP en vez del symlink de Payara
+Route::get('/archivo/imagen/{path}', [FileController::class, 'imagen'])
+    ->name('archivo.imagen')
+    ->where('path', '.*')
+    ->middleware('throttle:100,1');
+
 Route::get('/verificar/{codigo}', [CursoController::class, 'verificarCertificadoPublico'])
     ->name('verificar.certificado');
 
