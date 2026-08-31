@@ -255,7 +255,7 @@
 @endsection
 
 @push('scripts')
-@if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado)
+@if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado && !empty($fileExists))
 <script>
     // Lector de PDF con pdf.js + deteccion de scroll hasta el final (90%)
     (function() {
@@ -312,29 +312,39 @@
         }
         viewer.addEventListener('scroll', checkScroll, { passive: true });
 
-        // Cargar pdf.js solo si no esta globalmente disponible
-        function loadScript(src, callback) {
-            if (document.querySelector('script[src="' + src + '"]')) {
-                callback();
-                return;
+        // Cargar pdf.js: intenta CDN primero, si falla usa la ruta local por PHP
+        var PDFJS_CDN_LIB  = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        var PDFJS_CDN_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        var PDFJS_LOCAL_LIB   = '{{ route('pdfjs.asset', 'pdf.min.js') }}';
+        var PDFJS_LOCAL_WORKER = '{{ route('pdfjs.asset', 'pdf.worker.min.js') }}';
+        var pdfjsLib = null;
+
+        function setWorker() {
+            if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = window.__pdfWorkerSrc;
             }
+        }
+
+        function loadPdfJs(src, ok) {
+            if (document.querySelector('script[src="' + src + '"]')) { ok(); return; }
             var s = document.createElement('script');
             s.src = src;
-            s.onload = callback;
-            s.onerror = function() { console.error('[PDF] Error cargando pdf.js'); };
+            s.onload = ok;
+            s.onerror = function() { console.error('[PDF] No cargo pdf.js de:', src); ok(); };
             document.head.appendChild(s);
         }
 
-        loadScript('{{ route('pdfjs.asset', 'pdf.min.js') }}', function() {
-            var pdfjsLib = window['pdfjs-dist/build/pdf'];
-            if (!pdfjsLib) { pdfjsLib = window.pdfjsLib; }
+        function startViewer() {
+            pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
             if (!pdfjsLib) {
-                console.error('[PDF] pdf.js no disponible');
                 viewer.querySelector('.pdf-loading').innerHTML = 'No se pudo cargar el visor PDF. Usa "Descargar PDF" para revisarlo.';
                 return;
             }
 
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ route('pdfjs.asset', 'pdf.worker.min.js') }}';
+            // Resolver worker: si CDN ya cargo, usar CDN; si no, usar local
+            var cdnOk = document.querySelector('script[src="' + PDFJS_CDN_LIB + '"]');
+            window.__pdfWorkerSrc = cdnOk ? PDFJS_CDN_WORKER : PDFJS_LOCAL_WORKER;
+            setWorker();
 
             // Red de seguridad: si el worker/PDF no se resuelve en 30s, avisar en vez de dejar el spinner infinito
             var pdfTimeout = setTimeout(function() {
@@ -387,7 +397,9 @@
                 console.error('[PDF] Error al leer PDF:', err);
                 viewer.querySelector('.pdf-loading').innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF" para revisarlo.';
             });
-        });
+        }
+
+        loadPdfJs(PDFJS_CDN_LIB, startViewer);
     })();
 </script>
 @endif

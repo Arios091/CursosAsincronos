@@ -51,22 +51,29 @@
         if (!viewer) return;
         var pdfUrl = viewer.getAttribute('data-pdf-url');
 
-        function loadScript(src, callback) {
-            if (document.querySelector('script[src="' + src + '"]')) { callback(); return; }
+        var PDFJS_CDN_LIB  = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        var PDFJS_CDN_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        var PDFJS_LOCAL_LIB   = '{{ route('pdfjs.asset', 'pdf.min.js') }}';
+        var PDFJS_LOCAL_WORKER = '{{ route('pdfjs.asset', 'pdf.worker.min.js') }}';
+
+        function loadPdfJs(src, ok) {
+            if (document.querySelector('script[src="' + src + '"]')) { ok(); return; }
             var s = document.createElement('script');
             s.src = src;
-            s.onload = callback;
-            s.onerror = function() { console.error('Error cargando pdf.js'); };
+            s.onload = ok;
+            s.onerror = function() { console.error('[PDF] No cargo pdf.js de:', src); ok(); };
             document.head.appendChild(s);
         }
 
-        loadScript('{{ route('pdfjs.asset', 'pdf.min.js') }}', function() {
+        function startViewer() {
             var pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
             if (!pdfjsLib) {
                 viewer.querySelector('.pdf-loading').innerHTML = 'No se pudo cargar el visor PDF. Usa "Descargar PDF".';
                 return;
             }
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ route('pdfjs.asset', 'pdf.worker.min.js') }}';
+
+            var cdnOk = document.querySelector('script[src="' + PDFJS_CDN_LIB + '"]');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = cdnOk ? PDFJS_CDN_WORKER : PDFJS_LOCAL_WORKER;
 
             var pdfTimeout = setTimeout(function() {
                 viewer.querySelector('.pdf-loading').innerHTML = 'El visor PDF tardo demasiado. Usa "Descargar PDF".';
@@ -99,7 +106,9 @@
                 clearTimeout(pdfTimeout);
                 viewer.querySelector('.pdf-loading').innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF".';
             });
-        });
+        }
+
+        loadPdfJs(PDFJS_CDN_LIB, startViewer);
     })();
 </script>
 @endif
