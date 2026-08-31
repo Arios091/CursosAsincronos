@@ -118,40 +118,87 @@ class FileController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function verPdf($filename)
+    public function verPdf(Material $material)
     {
-        $material = Material::where('archivo', 'materiales/' . $filename)->firstOrFail();
-        
         $this->authorizeMaterialAccess($material);
 
-        $path = 'materiales/' . $filename;
-        
-        if (!Storage::disk('public')->exists($path)) {
+        $path = $this->resolveMaterialFile($material->archivo);
+
+        if (!$path) {
             abort(404, 'Archivo no encontrado');
         }
 
         $file = Storage::disk('public')->get($path);
         $type = Storage::disk('public')->mimeType($path);
+        $downloadName = basename($path);
 
         return response($file, 200, [
             'Content-Type' => $type,
-            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Content-Disposition' => 'inline; filename="' . $downloadName . '"',
         ]);
     }
 
-    public function descargarPdf($filename)
+    public function descargarPdf(Material $material)
     {
-        $material = Material::where('archivo', 'materiales/' . $filename)->firstOrFail();
-        
         $this->authorizeMaterialAccess($material);
 
-        $path = 'materiales/' . $filename;
-        
-        if (!Storage::disk('public')->exists($path)) {
+        $path = $this->resolveMaterialFile($material->archivo);
+
+        if (!$path) {
             abort(404, 'Archivo no encontrado');
         }
 
-        return Storage::disk('public')->download($path, $filename);
+        return Storage::disk('public')->download($path, basename($path));
+    }
+
+    /**
+     * Resuelve la ruta real del archivo PDF (disco public) a partir del valor
+     * guardado en BD, tolerando discrepancias de nombre entre BD y disco.
+     * Devuelve null si no se encuentra ningun archivo.
+     */
+    protected function resolveMaterialFile(?string $archivo): ?string
+    {
+        $disk = Storage::disk('public');
+
+        // 1) Ruta exacta como esta en BD
+        if ($archivo && $disk->exists($archivo)) {
+            return $archivo;
+        }
+
+        // 2) Si no existe, buscar de forma tolerante en la carpeta de materiales
+        if (!$disk->exists('materiales')) {
+            return null;
+        }
+
+        $files = $disk->files('materiales');
+
+        $baseName = $archivo ? basename($archivo) : null;
+        $baseNoExt = $archivo ? pathinfo($baseName, PATHINFO_FILENAME) : null;
+
+        // 2a) Coincidencia por nombre de archivo exacto (basename)
+        if ($baseName) {
+            foreach ($files as $f) {
+                if (basename($f) === $baseName) {
+                    return $f;
+                }
+            }
+        }
+
+        // 2b) Coincidencia por nombre sin extension
+        if ($baseNoExt) {
+            foreach ($files as $f) {
+                if (pathinfo($f, PATHINFO_FILENAME) === $baseNoExt) {
+                    return $f;
+                }
+            }
+        }
+
+        // 2c) Si solo hay un archivo en la carpeta de materiales, usarlo
+        if (count($files) === 1) {
+            return $files[0];
+        }
+
+        return null;
     }
 
     protected function authorizeMaterialAccess(Material $material)

@@ -153,11 +153,11 @@
                         @elseif($materialActual->tipo === 'pdf')
                             @php
                                 $filename = basename($materialActual->archivo);
-                                $pdfUrl = route('archivo.pdf', $filename);
-                                $fileExists = \Illuminate\Support\Facades\Storage::disk('public')->exists('materiales/' . $filename);
+                                $pdfUrl = route('archivo.pdf', $materialActual->id);
+                                $hasArchivo = !empty($materialActual->archivo);
                             @endphp
                             
-                            @if($fileExists)
+                            @if($hasArchivo)
                                 <div id="pdf-viewer-{{ $materialActual->id }}" class="pdf-viewer"
                                      style="width: 100%; height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #525659;"
                                      data-pdf-url="{{ $pdfUrl }}" data-material-id="{{ $materialActual->id }}">
@@ -165,7 +165,7 @@
                                         <i class="fas fa-spinner fa-spin mr-1"></i> Cargando PDF...
                                     </div>
                                 </div>
-                                <a href="{{ route('archivo.pdf.descargar', $filename) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                                <a href="{{ route('archivo.pdf.descargar', $materialActual->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
                                     <i class="fas fa-download mr-1"></i> Descargar PDF
                                 </a>
                             @else
@@ -255,7 +255,7 @@
 @endsection
 
 @push('scripts')
-@if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado && !empty($fileExists))
+@if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado && !empty($hasArchivo))
 <script>
     // Lector de PDF con pdf.js + deteccion de scroll hasta el final (90%)
     (function() {

@@ -21,7 +21,7 @@
             @elseif($material->tipo === 'pdf')
                 @php
                     $filename = basename($material->archivo ?? $material->url);
-                    $pdfUrl = $material->archivo ? route('archivo.pdf', $filename) : $material->url;
+                    $pdfUrl = $material->archivo ? route('archivo.pdf', $material->id) : $material->url;
                 @endphp
                 <div id="pdf-viewer-material" class="pdf-viewer"
                      style="width: 100%; height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #525659; margin-top: 1rem;"
@@ -31,7 +31,7 @@
                     </div>
                 </div>
                 @if($material->archivo)
-                <a href="{{ route('archivo.pdf.descargar', $filename) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                <a href="{{ route('archivo.pdf.descargar', $material->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
                     <i class="fas fa-download mr-1"></i> Descargar PDF
                 </a>
                 @endif

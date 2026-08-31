@@ -112,10 +112,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/files/upload', [FileController::class, 'upload'])->name('files.upload');
     Route::post('/files/delete', [FileController::class, 'delete'])->name('files.delete');
 
-    // PDFs de materiales (requiere symlink: php artisan storage:link)
-    Route::get('/archivo/pdf/{filename}', [FileController::class, 'verPdf'])
+    // PDFs de materiales - se resuelven por ID de material (robusto a cambios de nombre en disco)
+    Route::get('/archivo/pdf/{material}', [FileController::class, 'verPdf'])
         ->name('archivo.pdf');
-    Route::get('/archivo/pdf/descargar/{filename}', [FileController::class, 'descargarPdf'])
+    Route::get('/archivo/pdf/descargar/{material}', [FileController::class, 'descargarPdf'])
         ->name('archivo.pdf.descargar');
 
     // Certificados
