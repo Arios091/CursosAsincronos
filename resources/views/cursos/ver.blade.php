@@ -325,7 +325,7 @@
             document.head.appendChild(s);
         }
 
-        loadScript('{{ asset('vendor/pdfjs/pdf.min.js') }}', function() {
+        loadScript('{{ route('pdfjs.asset', 'pdf.min.js') }}', function() {
             var pdfjsLib = window['pdfjs-dist/build/pdf'];
             if (!pdfjsLib) { pdfjsLib = window.pdfjsLib; }
             if (!pdfjsLib) {
@@ -334,9 +334,15 @@
                 return;
             }
 
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ asset('vendor/pdfjs/pdf.worker.min.js') }}';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '{{ route('pdfjs.asset', 'pdf.worker.min.js') }}';
+
+            // Red de seguridad: si el worker/PDF no se resuelve en 30s, avisar en vez de dejar el spinner infinito
+            var pdfTimeout = setTimeout(function() {
+                viewer.querySelector('.pdf-loading').innerHTML = 'El visor PDF tardo demasiado. Usa "Descargar PDF" para revisarlo.';
+            }, 30000);
 
             pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                clearTimeout(pdfTimeout);
                 viewer.querySelector('.pdf-loading')?.remove();
 
                 var pageNum = pdf.numPages;
@@ -377,6 +383,7 @@
                     }
                 });
             }).catch(function(err) {
+                clearTimeout(pdfTimeout);
                 console.error('[PDF] Error al leer PDF:', err);
                 viewer.querySelector('.pdf-loading').innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF" para revisarlo.';
             });

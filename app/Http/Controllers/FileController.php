@@ -69,6 +69,26 @@ class FileController extends Controller
         return $path;
     }
 
+    public function pdfJsAsset($file)
+    {
+        if (!in_array($file, ['pdf.min.js', 'pdf.worker.min.js'], true)) {
+            abort(404);
+        }
+
+        $path = public_path('vendor/pdfjs/' . $file);
+        if (!file_exists($path)) {
+            abort(404);
+        }
+
+        $code = file_get_contents($path);
+
+        return response($code, 200, [
+            'Content-Type' => 'application/javascript; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=86400',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function upload(Request $request)
     {
         $request->validate([

@@ -39,6 +39,14 @@ Route::get('/archivo/imagen/{path}', [FileController::class, 'imagen'])
     ->where('path', '.*')
     ->middleware('throttle:100,1');
 
+// pdf.js (pdf.min.js + pdf.worker.min.js) servidos via PHP con Content-Type JS correcto.
+// El worker de pdf.js requiere Content-Type: application/javascript; Payara puede servir
+// .js como text/plain y eso hace que new Worker() falle y el PDF se quede cargando.
+Route::get('/vendor/pdfjs/{file}', [FileController::class, 'pdfJsAsset'])
+    ->name('pdfjs.asset')
+    ->where('file', 'pdf\.min\.js|pdf\.worker\.min\.js')
+    ->middleware('throttle:60,1');
+
 Route::get('/verificar/{codigo}', [CursoController::class, 'verificarCertificadoPublico'])
     ->name('verificar.certificado');
 
