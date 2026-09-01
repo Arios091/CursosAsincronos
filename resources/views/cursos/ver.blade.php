@@ -274,6 +274,8 @@
 @if($moduloActual && $materialActual && $materialActual->tipo === 'pdf' && !$completado && !empty($hasArchivo))
 <script>
     // Lector de PDF con pdf.js + deteccion de scroll hasta el final (90%)
+    // Envuelto en DOMContentLoaded para asegurar que #pdf-viewer-X ya existe en el DOM.
+    document.addEventListener('DOMContentLoaded', function() {
     (function() {
         var viewer = document.getElementById('pdf-viewer-{{ $materialActual->id }}');
         var progressBar = document.getElementById('pdf-progress-bar-{{ $materialActual->id }}');
@@ -449,6 +451,7 @@
 
         loadPdfJs(PDFJS_CDN_LIB, startViewer);
     })();
+    }); // DOMContentLoaded
 </script>
 @endif
 <script>
