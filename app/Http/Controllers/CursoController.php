@@ -298,9 +298,11 @@ class CursoController extends Controller
     {
         $user = auth()->user();
 
-        $progreso = \App\Models\ProgresoMaterial::updateOrCreate(
+        // Solo usamos la columna 'completado' que sí existe en la tabla progreso_materiales.
+        // Las columnas scroll_completado y material_completado NO existen en la BD.
+        \App\Models\ProgresoMaterial::updateOrCreate(
             ['user_id' => $user->id, 'material_id' => $material->id],
-            ['scroll_completado' => true, 'material_completado' => true]
+            ['completado' => true]
         );
 
         return response()->json([

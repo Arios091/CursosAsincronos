@@ -158,6 +158,22 @@
                             @endphp
                             
                             @if($hasArchivo)
+                                @if(!$completado)
+                                <div class="alert alert-info d-flex align-items-center mb-2" style="border-left: 4px solid #2563eb; background: #eff6ff; color: #1e40af; border-radius: 6px;">
+                                    <i class="fas fa-info-circle mr-2" style="font-size:1.1rem;"></i>
+                                    <span>Desplázate hasta el final del documento para poder continuar.</span>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="font-weight-bold text-muted">Progreso de lectura</small>
+                                        <small id="pdf-progress-label-{{ $materialActual->id }}" class="font-weight-bold" style="color: #0B5E2E;">0%</small>
+                                    </div>
+                                    <div style="background: #e5e7eb; border-radius: 999px; height: 8px; overflow: hidden;">
+                                        <div id="pdf-progress-bar-{{ $materialActual->id }}"
+                                             style="width: 0%; height: 100%; background: linear-gradient(90deg, #0B5E2E, #C9A227); border-radius: 999px; transition: width 0.2s ease;"></div>
+                                    </div>
+                                </div>
+                                @endif
                                 <div id="pdf-viewer-{{ $materialActual->id }}" class="pdf-viewer"
                                      style="width: 100%; height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #525659;"
                                      data-pdf-url="{{ $pdfUrl }}" data-material-id="{{ $materialActual->id }}">
@@ -260,6 +276,8 @@
     // Lector de PDF con pdf.js + deteccion de scroll hasta el final (90%)
     (function() {
         var viewer = document.getElementById('pdf-viewer-{{ $materialActual->id }}');
+        var progressBar = document.getElementById('pdf-progress-bar-{{ $materialActual->id }}');
+        var progressLabel = document.getElementById('pdf-progress-label-{{ $materialActual->id }}');
         var materialId = {{ $materialActual->id }};
         var scrollCompletado = false;
 
@@ -269,6 +287,15 @@
         }
 
         var pdfUrl = viewer.getAttribute('data-pdf-url');
+
+        // Actualiza la barra de progreso visual según el scroll del viewer
+        function actualizarBarraProgreso() {
+            var scrollTop = viewer.scrollTop;
+            var maxScroll = viewer.scrollHeight - viewer.clientHeight;
+            var porcentaje = maxScroll > 0 ? Math.min(100, Math.round((scrollTop / maxScroll) * 100)) : 0;
+            if (progressBar)  progressBar.style.width = porcentaje + '%';
+            if (progressLabel) progressLabel.textContent = porcentaje + '%';
+        }
 
         function marcarPdfCompletado() {
             fetch('/material/' + materialId + '/pdf-scroll', {
@@ -283,20 +310,31 @@
             .then(function(data) {
                 if (data.scroll_completado) {
                     console.log('[PDF] Completado confirmado por servidor');
+                    // CORRECCIÓN: NO recargar la página aquí.
+                    // Solo habilitamos el botón Continuar. La recarga ocurrirá
+                    // cuando el usuario haga clic en ese botón.
                     if (typeof habilitarContinuar === 'function') {
                         habilitarContinuar();
                     }
-                    setTimeout(function() { location.reload(); }, 500);
                 }
             })
             .catch(function(err) {
                 console.error('[PDF] Error marcando completado:', err);
+                // Ante un error de red, habilitamos el botón de todas formas
+                // para no bloquear al usuario. El servidor ya puede haberlo guardado.
+                if (typeof habilitarContinuar === 'function') {
+                    habilitarContinuar();
+                }
             });
         }
 
         // Deteccion de scroll: 90% del total desplazado
         var debounceTimer = null;
         function checkScroll() {
+            // Actualizar barra de progreso en cada scroll (sin debounce para fluidez visual)
+            actualizarBarraProgreso();
+
+            // Verificar si se llegó al 90%+ con debounce para no spamear el servidor
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(function() {
                 var scrollTop = viewer.scrollTop;
@@ -305,6 +343,9 @@
                     if (!scrollCompletado) {
                         scrollCompletado = true;
                         console.log('[PDF] 90% scroll alcanzado, marcando completado...');
+                        // Actualizar barra al 100%
+                        if (progressBar)  progressBar.style.width = '100%';
+                        if (progressLabel) progressLabel.textContent = '100%';
                         marcarPdfCompletado();
                     }
                 }
@@ -348,12 +389,14 @@
 
             // Red de seguridad: si el worker/PDF no se resuelve en 30s, avisar en vez de dejar el spinner infinito
             var pdfTimeout = setTimeout(function() {
-                viewer.querySelector('.pdf-loading').innerHTML = 'El visor PDF tardo demasiado. Usa "Descargar PDF" para revisarlo.';
+                var loadingEl = viewer.querySelector('.pdf-loading');
+                if (loadingEl) loadingEl.innerHTML = 'El visor PDF tardó demasiado. Usa "Descargar PDF" para revisarlo.';
             }, 30000);
 
             pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
                 clearTimeout(pdfTimeout);
-                viewer.querySelector('.pdf-loading')?.remove();
+                var loadingEl = viewer.querySelector('.pdf-loading');
+                if (loadingEl) loadingEl.remove();
 
                 var pageNum = pdf.numPages;
                 var scale = 1.2;
@@ -372,6 +415,8 @@
                         var ctx = canvas.getContext('2d');
                         return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
                             viewer.appendChild(canvas);
+                            // Actualizar barra de progreso después de cada página renderizada
+                            actualizarBarraProgreso();
                         });
                     });
                 }
@@ -388,6 +433,8 @@
                         console.log('[PDF] PDF de una sola pagina, se marca completado');
                         if (!scrollCompletado) {
                             scrollCompletado = true;
+                            if (progressBar)  progressBar.style.width = '100%';
+                            if (progressLabel) progressLabel.textContent = '100%';
                             marcarPdfCompletado();
                         }
                     }
@@ -395,7 +442,8 @@
             }).catch(function(err) {
                 clearTimeout(pdfTimeout);
                 console.error('[PDF] Error al leer PDF:', err);
-                viewer.querySelector('.pdf-loading').innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF" para revisarlo.';
+                var loadingEl = viewer.querySelector('.pdf-loading');
+                if (loadingEl) loadingEl.innerHTML = 'Error al cargar el PDF. Usa "Descargar PDF" para revisarlo.';
             });
         }
 
