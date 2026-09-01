@@ -436,6 +436,7 @@ class EditCurso extends Component
                 $archivoPath = null;
                 if (isset($materialData['archivo_nuevo']) && $materialData['archivo_nuevo']) {
                     if (is_object($materialData['archivo_nuevo']) && method_exists($materialData['archivo_nuevo'], 'store')) {
+                        $this->validarArchivoMaterial($materialData['archivo_nuevo']);
                         $archivoPath = $materialData['archivo_nuevo']->store('materiales', 'public');
                     } elseif (is_string($materialData['archivo_nuevo'])) {
                         $archivoPath = $materialData['archivo_nuevo'];
@@ -611,6 +612,24 @@ class EditCurso extends Component
 
         session()->flash('success', 'Curso actualizado exitosamente.');
         return redirect()->route('cursos.show', $curso);
+    }
+
+    private function validarArchivoMaterial($archivo)
+    {
+        $maxBytes = 30 * 1024 * 1024;
+
+        if (method_exists($archivo, 'getSize') && $archivo->getSize() > $maxBytes) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'archivo' => 'El archivo supera el tamano maximo permitido (30MB). Revisa el tamano e intenta de nuevo.',
+            ]);
+        }
+
+        $ext = strtolower(method_exists($archivo, 'getClientOriginalExtension') ? $archivo->getClientOriginalExtension() : $archivo->extension());
+        if ($ext !== 'pdf') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'archivo' => 'El archivo del material debe ser PDF.',
+            ]);
+        }
     }
 
     private function eliminarRemovidos($curso, $moduloIds, $materialIds, $cuestionarioPreguntaIds, $cuestionarioOpcionIds, $examenPreguntaIds, $examenOpcionIds)

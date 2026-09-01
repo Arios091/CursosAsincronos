@@ -125,7 +125,8 @@ class FileController extends Controller
         $path = $this->resolveMaterialFile($material->archivo);
 
         if (!$path) {
-            abort(404, 'Archivo no encontrado');
+            $esperado = $material->archivo ?? '(sin archivo registrado)';
+            abort(404, 'El archivo del material no se encontro en el servidor (busca en disco: ' . $esperado . ').');
         }
 
         $file = Storage::disk('public')->get($path);
@@ -145,7 +146,8 @@ class FileController extends Controller
         $path = $this->resolveMaterialFile($material->archivo);
 
         if (!$path) {
-            abort(404, 'Archivo no encontrado');
+            $esperado = $material->archivo ?? '(sin archivo registrado)';
+            abort(404, 'El archivo del material no se encontro en el servidor (busca en disco: ' . $esperado . ').');
         }
 
         return Storage::disk('public')->download($path, basename($path));

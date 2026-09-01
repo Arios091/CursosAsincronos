@@ -308,6 +308,7 @@ class CreateCurso extends Component
                 $archivoPath = null;
                 if (isset($materialData['archivo']) && $materialData['archivo']) {
                     if (is_object($materialData['archivo']) && method_exists($materialData['archivo'], 'store')) {
+                        $this->validarArchivoMaterial($materialData['archivo']);
                         $archivoPath = $materialData['archivo']->store('materiales', 'public');
                     } elseif (is_string($materialData['archivo'])) {
                         $archivoPath = $materialData['archivo'];
@@ -377,5 +378,23 @@ class CreateCurso extends Component
 
         session()->flash('success', 'Curso creado exitosamente.');
         return redirect()->route('cursos.show', $curso);
+    }
+
+    private function validarArchivoMaterial($archivo)
+    {
+        $maxBytes = 30 * 1024 * 1024;
+
+        if (method_exists($archivo, 'getSize') && $archivo->getSize() > $maxBytes) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'archivo' => 'El archivo supera el tamano maximo permitido (30MB). Revisa el tamano e intenta de nuevo.',
+            ]);
+        }
+
+        $ext = strtolower(method_exists($archivo, 'getClientOriginalExtension') ? $archivo->getClientOriginalExtension() : $archivo->extension());
+        if ($ext !== 'pdf') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'archivo' => 'El archivo del material debe ser PDF.',
+            ]);
+        }
     }
 }
