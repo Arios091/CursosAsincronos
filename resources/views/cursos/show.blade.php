@@ -2,6 +2,18 @@
 
 @section('content')
 <div class="container">
+    @if(session()->has('avisos_pdf'))
+        @foreach(session('avisos_pdf') as $aviso)
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle mr-1"></i> {{ $aviso }}
+        </div>
+        @endforeach
+    @endif
+    @if(session()->has('success'))
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
+        </div>
+    @endif
     <div class="card shadow">
         @if($curso->imagen)
         <img src="{{ storage_url($curso->imagen) }}" class="card-img-top" alt="{{ $curso->titulo }}" style="height: 250px; object-fit: cover;">

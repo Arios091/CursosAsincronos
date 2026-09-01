@@ -33,6 +33,8 @@ class CreateCurso extends Component
         'preguntas' => [],
     ];
 
+    public $avisosPdf = [];
+
     protected $rules = [
         'titulo' => 'required|string|max:255',
         'descripcion' => 'required|string',
@@ -310,6 +312,12 @@ class CreateCurso extends Component
                     if (is_object($materialData['archivo']) && method_exists($materialData['archivo'], 'store')) {
                         $this->validarArchivoMaterial($materialData['archivo']);
                         $archivoPath = $materialData['archivo']->store('materiales', 'public');
+                        if ($archivoPath) {
+                            $paginas = $this->contarPaginasPdf($archivoPath);
+                            if ($paginas > 100) {
+                                $this->avisosPdf[] = 'El PDF "' . ($materialData['titulo'] ?? '') . '" tiene ' . $paginas . ' paginas. Es muy largo y puede tardar en cargar.';
+                            }
+                        }
                     } elseif (is_string($materialData['archivo'])) {
                         $archivoPath = $materialData['archivo'];
                     }
@@ -377,24 +385,35 @@ class CreateCurso extends Component
         }
 
         session()->flash('success', 'Curso creado exitosamente.');
+
+        if (count($this->avisosPdf) > 0) {
+            session()->flash('avisos_pdf', $this->avisosPdf);
+        }
+
         return redirect()->route('cursos.show', $curso);
     }
 
     private function validarArchivoMaterial($archivo)
     {
-        $maxBytes = 30 * 1024 * 1024;
-
-        if (method_exists($archivo, 'getSize') && $archivo->getSize() > $maxBytes) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'archivo' => 'El archivo supera el tamano maximo permitido (30MB). Revisa el tamano e intenta de nuevo.',
-            ]);
-        }
-
         $ext = strtolower(method_exists($archivo, 'getClientOriginalExtension') ? $archivo->getClientOriginalExtension() : $archivo->extension());
         if ($ext !== 'pdf') {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'archivo' => 'El archivo del material debe ser PDF.',
             ]);
+        }
+    }
+
+    private function contarPaginasPdf($path)
+    {
+        try {
+            $contenido = \Storage::disk('public')->get($path);
+            if ($contenido === null || $contenido === '') {
+                return 0;
+            }
+            preg_match_all('/\/Type[ \t]*\/Page[^s]/', $contenido, $m);
+            return count($m[0]);
+        } catch (\Throwable $e) {
+            return 0;
         }
     }
 }
