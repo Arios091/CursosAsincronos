@@ -8,8 +8,8 @@ use Illuminate\Support\Str;
 
 class ImageService
 {
-    public const CURSO_WIDTH = 400;
-    public const CURSO_HEIGHT = 225;
+    public const CURSO_WIDTH = 800;
+    public const CURSO_HEIGHT = 450;
 
     public const HERO_WIDTH = 1920;
     public const HERO_HEIGHT = 600;
@@ -50,7 +50,12 @@ class ImageService
             $srcW = imagesx($src);
             $srcH = imagesy($src);
 
-            // Create destination image
+            // Aumentar el limite de memoria temporalmente para que GD pueda
+            // procesar imagenes de alta resolucion sin error de servidor (500).
+            $prevMemory = ini_get('memory_limit');
+            ini_set('memory_limit', '256M');
+
+            // Create destination image\n
             $dst = imagecreatetruecolor($width, $height);
 
             // Handle transparency for PNG/WebP
@@ -69,18 +74,27 @@ class ImageService
 
                 imagecopyresampled($dst, $src, $offsetX, $offsetY, 0, 0, $newW, $newH, $srcW, $srcH);
             } elseif ($mode === 'cover') {
-                // Crop to fill (cover)
+                // Escalar para que la imagen LLENE el destino (puede ser mas grande).
                 $ratio = max($width / $srcW, $height / $srcH);
-                $newW = (int)($srcW * $ratio);
-                $newH = (int)($srcH * $ratio);
-                $offsetX = (int)(($width - $newW) / 2);
-                $offsetY = (int)(($height - $newH) / 2);
+                $scaledW = (int)($srcW * $ratio);
+                $scaledH = (int)($srcH * $ratio);
 
-                $tempCrop = imagecreatetruecolor($newW, $newH);
-                imagecopyresampled($tempCrop, $src, 0, 0, 0, 0, $newW, $newH, $srcW, $srcH);
-                imagecopy($dst, $tempCrop, $offsetX, $offsetY, 0, 0, $width, $height);
-                imagedestroy($tempCrop);
+                // El exceso se recorta desde el CENTRO del origen.
+                // Los offsets van en (src_x, src_y), NO en el destino.
+                // Esto evita las zonas negras que aparecen cuando los offsets
+                // de destino son negativos y GD los ignora.
+                $srcOffsetX = (int)(($scaledW - $width) / 2 / $ratio);
+                $srcOffsetY = (int)(($scaledH - $height) / 2 / $ratio);
+
+                imagecopyresampled(
+                    $dst, $src,
+                    0, 0,                       // destino: esquina superior izquierda
+                    $srcOffsetX, $srcOffsetY,   // origen: recorte centrado
+                    $width, $height,            // tamano destino
+                    (int)($width / $ratio), (int)($height / $ratio)  // tamano origen recortado
+                );
             }
+
 
             // Guardar: preferir WebP; si no hay soporte, usar JPEG/PNG como respaldo
             $saved = false;
@@ -113,6 +127,8 @@ class ImageService
             if (isset($jpegPath)) @unlink($jpegPath);
             imagedestroy($src);
             imagedestroy($dst);
+            // Restaurar el limite de memoria original
+            ini_set('memory_limit', $prevMemory);
 
             return $folder . '/' . $filename;
 
@@ -120,8 +136,10 @@ class ImageService
             // Cleanup on error
             @unlink($tempPath);
             if (isset($jpegPath)) @unlink($jpegPath);
-            if (isset($src)) imagedestroy($src);
-            if (isset($dst)) imagedestroy($dst);
+            if (isset($src)) @imagedestroy($src);
+            if (isset($dst)) @imagedestroy($dst);
+            // Restaurar el limite de memoria aunque haya error
+            if (isset($prevMemory)) ini_set('memory_limit', $prevMemory);
             
             \Log::error('ImageService uploadAndResize failed: ' . $e->getMessage(), [
                 'folder' => $folder,
