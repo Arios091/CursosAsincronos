@@ -226,6 +226,26 @@
                                     <div class="form-group">
                                         <input type="text" class="form-control form-control-sm" wire:model="modulos.{{ $modIdx }}.cuestionario.preguntas.{{ $pregIdx }}.texto" placeholder="Escribe la pregunta...">
                                     </div>
+
+                                    {{-- Imagen opcional --}}
+                                    <div class="form-group">
+                                        <label class="small text-muted mb-1"><i class="fas fa-image mr-1"></i> Imagen (opcional)</label>
+                                        @if(!empty($pregunta['imagen_path']) || !empty($pregunta['imagen_archivo']))
+                                            <div class="mb-1">
+                                                @if(is_object($pregunta['imagen_archivo'] ?? null))
+                                                    <img src="{{ $pregunta['imagen_archivo']->temporaryUrl() }}" class="img-thumbnail" style="max-height: 100px;">
+                                                @elseif(!empty($pregunta['imagen_path']))
+                                                    <img src="{{ Storage::url($pregunta['imagen_path']) }}" class="img-thumbnail" style="max-height: 100px;">
+                                                @endif
+                                                <button type="button" class="btn btn-sm btn-outline-danger ml-1" wire:click="quitarImagenPreguntaCuestionario({{ $modIdx }}, {{ $pregIdx }})">
+                                                    <i class="fas fa-trash-alt"></i> Quitar
+                                                </button>
+                                            </div>
+                                        @else
+                                            <input type="file" class="form-control-file form-control-sm" wire:model="modulos.{{ $modIdx }}.cuestionario.preguntas.{{ $pregIdx }}.imagen_archivo" accept="image/*">
+                                        @endif
+                                    </div>
+
                                     <div class="ml-3">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <small class="font-weight-bold text-muted">Opciones:</small>
@@ -250,6 +270,27 @@
                                             </div>
                                         </div>
                                         @endforeach
+                                    </div>
+
+                                    {{-- Justificacion --}}
+                                    <div class="mt-3">
+                                        @if(!empty($pregunta['tiene_justificacion']))
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="font-weight-bold" style="color: #0B5E2E;"><i class="fas fa-lightbulb mr-1"></i> Justificacion de la respuesta <span class="badge badge-success">Habilitada</span></small>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" wire:click="toggleJustificacionCuestionario({{ $modIdx }}, {{ $pregIdx }})">
+                                                    <i class="fas fa-times mr-1"></i> Eliminar justificacion
+                                                </button>
+                                            </div>
+                                            <textarea class="form-control form-control-sm"
+                                                      wire:model="modulos.{{ $modIdx }}.cuestionario.preguntas.{{ $pregIdx }}.justificacion"
+                                                      rows="2"
+                                                      placeholder="Explica por que la opcion correcta es la correcta (se mostrara al alumno al terminar el quiz)..."></textarea>
+                                        @else
+                                            <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" wire:click="toggleJustificacionCuestionario({{ $modIdx }}, {{ $pregIdx }})">
+                                                <i class="fas fa-plus mr-1"></i> Agregar justificacion
+                                            </button>
+                                            <small class="text-muted ml-2">Sin justificacion</small>
+                                        @endif
                                     </div>
                                 </div>
                                 @endforeach
@@ -305,6 +346,26 @@
                                 <label class="small font-weight-bold">Texto de la Pregunta</label>
                                 <input type="text" class="form-control" wire:model="examenFinal.preguntas.{{ $pregIdx }}.texto" placeholder="Escribe la pregunta...">
                             </div>
+
+                            {{-- Imagen opcional --}}
+                            <div class="form-group">
+                                <label class="small text-muted mb-1"><i class="fas fa-image mr-1"></i> Imagen (opcional)</label>
+                                @if(!empty($pregunta['imagen_path']) || !empty($pregunta['imagen_archivo']))
+                                    <div class="mb-1">
+                                        @if(is_object($pregunta['imagen_archivo'] ?? null))
+                                            <img src="{{ $pregunta['imagen_archivo']->temporaryUrl() }}" class="img-thumbnail" style="max-height: 100px;">
+                                        @elseif(!empty($pregunta['imagen_path']))
+                                            <img src="{{ Storage::url($pregunta['imagen_path']) }}" class="img-thumbnail" style="max-height: 100px;">
+                                        @endif
+                                        <button type="button" class="btn btn-sm btn-outline-danger ml-1" wire:click="quitarImagenPreguntaExamen({{ $pregIdx }})">
+                                            <i class="fas fa-trash-alt"></i> Quitar
+                                        </button>
+                                    </div>
+                                @else
+                                    <input type="file" class="form-control-file" wire:model="examenFinal.preguntas.{{ $pregIdx }}.imagen_archivo" accept="image/*">
+                                @endif
+                            </div>
+
                             <div>
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <small class="font-weight-bold text-muted">Alternativas:</small>
@@ -329,6 +390,27 @@
                                     </div>
                                 </div>
                                 @endforeach
+                            </div>
+
+                            {{-- Justificacion --}}
+                            <div class="mt-3">
+                                @if(!empty($pregunta['tiene_justificacion']))
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="font-weight-bold" style="color: #C9A227;"><i class="fas fa-lightbulb mr-1"></i> Justificacion de la respuesta <span class="badge badge-warning">Habilitada</span></small>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" wire:click="toggleJustificacionExamen({{ $pregIdx }})">
+                                            <i class="fas fa-times mr-1"></i> Eliminar justificacion
+                                        </button>
+                                    </div>
+                                    <textarea class="form-control form-control-sm"
+                                              wire:model="examenFinal.preguntas.{{ $pregIdx }}.justificacion"
+                                              rows="2"
+                                              placeholder="Explica por que la opcion correcta es la correcta (se mostrara al alumno al revisar el examen)..."></textarea>
+                                @else
+                                    <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" wire:click="toggleJustificacionExamen({{ $pregIdx }})">
+                                        <i class="fas fa-plus mr-1"></i> Agregar justificacion
+                                    </button>
+                                    <small class="text-muted ml-2">Sin justificacion</small>
+                                @endif
                             </div>
                         </div>
                     </div>

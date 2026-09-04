@@ -385,12 +385,24 @@ class CursoController extends Controller
         $totalPreguntas = $cuestionario->preguntas->count();
         $aciertos = 0;
 
+        $revision = [];
         foreach ($cuestionario->preguntas as $pregunta) {
             $respuestaId = $respuestas[$pregunta->id] ?? null;
             $correcta = $pregunta->opciones->firstWhere('es_correcta', true);
-            if ($correcta && $respuestaId == $correcta->id) {
+            $acerto = $correcta && $respuestaId == $correcta->id;
+            if ($acerto) {
                 $aciertos++;
             }
+            $revision[] = [
+                'pregunta_id'    => $pregunta->id,
+                'pregunta_texto' => $pregunta->texto,
+                'acerto'         => $acerto,
+                'correcta_id'    => $correcta?->id,
+                'correcta_texto' => $correcta?->texto,
+                'elegida_id'     => $respuestaId ? (int)$respuestaId : null,
+                'justificacion'  => $pregunta->justificacion,
+                'imagen'         => $pregunta->imagen ? \Storage::url($pregunta->imagen) : null,
+            ];
         }
 
         $porcentaje = $totalPreguntas > 0 ? round(($aciertos / $totalPreguntas) * 100) : 0;
@@ -417,10 +429,12 @@ class CursoController extends Controller
         }
 
         return response()->json([
-            'aprobado' => $aprobado,
-            'puntaje' => $porcentaje,
-            'aciertos' => $aciertos,
-            'total' => $totalPreguntas,
+            'aprobado'  => $aprobado,
+            'puntaje'   => $porcentaje,
+            'aciertos'  => $aciertos,
+            'total'     => $totalPreguntas,
+            'intentos'  => $resultado->intentos,
+            'revision'  => $revision,
         ]);
     }
 
@@ -439,12 +453,24 @@ class CursoController extends Controller
         $totalPreguntas = $examenFinal->preguntas->count();
         $aciertos = 0;
 
+        $revision = [];
         foreach ($examenFinal->preguntas as $pregunta) {
             $respuestaId = $respuestas[$pregunta->id] ?? null;
             $correcta = $pregunta->opciones->firstWhere('es_correcta', true);
-            if ($correcta && $respuestaId == $correcta->id) {
+            $acerto = $correcta && $respuestaId == $correcta->id;
+            if ($acerto) {
                 $aciertos++;
             }
+            $revision[] = [
+                'pregunta_id'    => $pregunta->id,
+                'pregunta_texto' => $pregunta->texto,
+                'acerto'         => $acerto,
+                'correcta_id'    => $correcta?->id,
+                'correcta_texto' => $correcta?->texto,
+                'elegida_id'     => $respuestaId ? (int)$respuestaId : null,
+                'justificacion'  => $pregunta->justificacion,
+                'imagen'         => $pregunta->imagen ? \Storage::url($pregunta->imagen) : null,
+            ];
         }
 
         $porcentaje = $totalPreguntas > 0 ? round(($aciertos / $totalPreguntas) * 100) : 0;
@@ -483,18 +509,22 @@ class CursoController extends Controller
             $user->save();
 
             return response()->json([
-                'aprobado' => true,
-                'puntaje' => $porcentaje,
-                'redirect' => route('cursos.completado', $curso->id),
+                'aprobado'  => true,
+                'puntaje'   => $porcentaje,
+                'intentos'  => $resultado->intentos,
+                'revision'  => $revision,
+                'redirect'  => route('cursos.completado', $curso->id),
             ]);
         }
 
         return response()->json([
-            'aprobado' => false,
-            'puntaje' => $porcentaje,
-            'aciertos' => $aciertos,
-            'total' => $totalPreguntas,
-            'minimo' => $examenFinal->min_aprobacion ?? 80,
+            'aprobado'  => false,
+            'puntaje'   => $porcentaje,
+            'aciertos'  => $aciertos,
+            'total'     => $totalPreguntas,
+            'minimo'    => $examenFinal->min_aprobacion ?? 80,
+            'intentos'  => $resultado->intentos,
+            'revision'  => $revision,
         ]);
     }
 

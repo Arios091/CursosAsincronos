@@ -14,6 +14,8 @@ class PreguntaExamenFinal extends Model
     protected $fillable = [
         'examen_final_id',
         'texto',
+        'justificacion',
+        'imagen',
         'orden',
     ];
 

@@ -14,6 +14,8 @@ class PreguntaCuestionario extends Model
     protected $fillable = [
         'cuestionario_id',
         'texto',
+        'justificacion',
+        'imagen',
         'orden',
     ];
 

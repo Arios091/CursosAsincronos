@@ -83,7 +83,10 @@
                             <form id="examenFinalForm">
                                 @csrf
                                 @foreach($curso->examenFinal->preguntas->sortBy('orden') as $pIdx => $pregunta)
-                                <div class="mb-4 p-3 border rounded">
+                                <div class="mb-4 p-3 border rounded" id="quiz-pregunta-{{ $pregunta->id }}">
+                                    @if($pregunta->imagen)
+                                    <img src="{{ Storage::url($pregunta->imagen) }}" class="img-fluid rounded mb-2" style="max-height: 200px; object-fit: contain;">
+                                    @endif
                                     <p class="font-weight-bold mb-2">{{ ($pIdx + 1) }}. {{ $pregunta->texto }}</p>
                                     @foreach($pregunta->opciones->sortBy('orden') as $opcion)
                                     <div class="form-check mb-1">
@@ -91,6 +94,7 @@
                                         <label class="form-check-label" for="ef-{{ $opcion->id }}">{{ $opcion->texto }}</label>
                                     </div>
                                     @endforeach
+                                    <div class="quiz-revision mt-2" style="display:none;"></div>
                                 </div>
                                 @endforeach
                                 <button type="submit" class="btn text-white font-weight-bold px-4" style="background: #0B5E2E;" id="btnEnviarExamen">
@@ -207,7 +211,12 @@
                 </div>
 
             @elseif($moduloActual && !$materialActual && $moduloActual->cuestionario)
-                @php $cuestionario = $moduloActual->cuestionario; @endphp
+                @php
+                    $cuestionario = $moduloActual->cuestionario;
+                    $intentosPrevios = isset($resultadosCuestionarios[$cuestionario->id])
+                        ? $resultadosCuestionarios[$cuestionario->id]->intentos
+                        : (optional(\App\Models\ResultadoCuestionario::where('user_id', auth()->id())->where('cuestionario_id', $cuestionario->id)->first())->intentos ?? 0);
+                @endphp
                 <div class="card shadow-sm">
                     <div class="card-header font-weight-bold" style="background: linear-gradient(135deg, #0B5E2E, #0A4A24); color: #fff;">
                         <i class="fas fa-question-circle mr-1"></i> Cuestionario: {{ $cuestionario->titulo }}
@@ -219,11 +228,19 @@
                                 <i class="fas fa-check-circle mr-1"></i> Cuestionario aprobado.
                             </div>
                         @else
-                            <p class="text-muted mb-3">Responde todas las preguntas correctamente ({{ $cuestionario->min_aprobacion }}% minimo).</p>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <p class="text-muted mb-0">Responde todas las preguntas correctamente ({{ $cuestionario->min_aprobacion }}% minimo).</p>
+                                @if($intentosPrevios > 0)
+                                <small class="text-muted"><i class="fas fa-redo mr-1"></i> Intentos: <strong>{{ $intentosPrevios }}</strong></small>
+                                @endif
+                            </div>
                             <form id="cuestionario-modulo-form" data-modulo="{{ $moduloActual->id }}">
                                 @csrf
                                 @foreach($cuestionario->preguntas as $pIdx => $pregunta)
-                                <div class="mb-4 p-3 border rounded">
+                                <div class="mb-4 p-3 border rounded" id="quiz-pregunta-{{ $pregunta->id }}">
+                                    @if($pregunta->imagen)
+                                    <img src="{{ Storage::url($pregunta->imagen) }}" class="img-fluid rounded mb-2" style="max-height: 200px; object-fit: contain;">
+                                    @endif
                                     <p class="font-weight-bold mb-2">{{ ($pIdx + 1) }}. {{ $pregunta->texto }}</p>
                                     @foreach($pregunta->opciones as $opcion)
                                     <div class="form-check mb-1">
@@ -231,6 +248,8 @@
                                         <label class="form-check-label" for="qp-{{ $opcion->id }}">{{ $opcion->texto }}</label>
                                     </div>
                                     @endforeach
+                                    {{-- Zona de revisión (oculta hasta enviar) --}}
+                                    <div class="quiz-revision mt-2" style="display:none;"></div>
                                 </div>
                                 @endforeach
                                 <button type="submit" class="btn text-white font-weight-bold px-4" style="background: #0B5E2E;">
@@ -609,6 +628,45 @@
             });
         }
 
+        // -------------------------------------------------------
+        // Funcion auxiliar: renderiza la revision por pregunta
+        // -------------------------------------------------------
+        function renderizarRevision(revision) {
+            revision.forEach(function(item) {
+                var bloque = document.getElementById('quiz-pregunta-' + item.pregunta_id);
+                if (!bloque) return;
+
+                var zona = bloque.querySelector('.quiz-revision');
+                if (!zona) return;
+
+                // Deshabilitar radios de esta pregunta
+                bloque.querySelectorAll('input[type="radio"]').forEach(function(r) { r.disabled = true; });
+
+                var html = '';
+                if (item.acerto) {
+                    html += '<div class="alert alert-success py-1 mb-1"><i class="fas fa-check-circle mr-1"></i> <strong>¡Correcto!</strong></div>';
+                } else {
+                    html += '<div class="alert alert-danger py-1 mb-1">'
+                        + '<i class="fas fa-times-circle mr-1"></i> <strong>Incorrecto.</strong>'
+                        + (item.correcta_texto ? ' La respuesta correcta era: <em>' + item.correcta_texto + '</em>' : '')
+                        + '</div>';
+                }
+
+                if (item.imagen) {
+                    html += '<img src="' + item.imagen + '" class="img-fluid rounded mb-1" style="max-height:180px;object-fit:contain;">';
+                }
+
+                if (item.justificacion) {
+                    html += '<div class="p-2 rounded mt-1" style="background:#f0f8ff;border-left:3px solid #0B5E2E;">'
+                        + '<small><i class="fas fa-lightbulb mr-1" style="color:#0B5E2E;"></i><strong>Justificacion:</strong> '
+                        + item.justificacion + '</small></div>';
+                }
+
+                zona.innerHTML = html;
+                zona.style.display = 'block';
+            });
+        }
+
         // Module quiz form
         var quizForm = document.getElementById('cuestionario-modulo-form');
         if (quizForm) {
@@ -616,6 +674,8 @@
                 e.preventDefault();
                 var formData = new FormData(this);
                 var moduloId = this.dataset.modulo;
+                var submitBtn = this.querySelector('[type="submit"]');
+                if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Enviando...'; }
 
                 fetch('/cursos/modulo/' + moduloId + '/cuestionario', {
                     method: 'POST',
@@ -627,15 +687,27 @@
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
+                    // Mostrar revision por pregunta
+                    if (data.revision && data.revision.length) {
+                        renderizarRevision(data.revision);
+                    }
+
+                    // Actualizar contador de intentos
+                    var intentosEl = document.querySelector('.intentos-contador');
+                    if (intentosEl && data.intentos) { intentosEl.textContent = data.intentos; }
+
                     var div = document.getElementById('cuestionario-resultado');
                     div.style.display = 'block';
                     if (data.aprobado) {
-                        div.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle mr-1"></i> Cuestionario aprobado! Puntaje: ' + data.puntaje + '%</div>';
-                        setTimeout(function() { location.reload(); }, 2000);
+                        div.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle mr-1"></i> ¡Cuestionario aprobado! Puntaje: ' + data.puntaje + '% &mdash; Avanzando al siguiente modulo...</div>';
+                        setTimeout(function() { location.reload(); }, 3500);
                     } else {
-                        div.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle mr-1"></i> Cuestionario no aprobado. Puntaje: ' + data.puntaje + '%. Minimo: ' + '{{ $moduloActual && $moduloActual->cuestionario ? $moduloActual->cuestionario->min_aprobacion : 100 }}' + '%</div>';
-                        setTimeout(function() { location.reload(); }, 3000);
+                        div.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle mr-1"></i> Cuestionario no aprobado. Puntaje: ' + data.puntaje + '%. Minimo: ' + '{{ $moduloActual && $moduloActual->cuestionario ? $moduloActual->cuestionario->min_aprobacion : 100 }}' + '%<br><small class="text-muted">Revisa las justificaciones arriba e intenta de nuevo.</small></div>'
+                            + '<button class="btn btn-outline-primary btn-sm mt-2" onclick="location.reload()"><i class="fas fa-redo mr-1"></i> Reintentar Quiz</button>';
                     }
+                })
+                .catch(function() {
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Enviar Respuestas'; }
                 });
             });
         }
@@ -661,12 +733,21 @@
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
+                    // Mostrar revision por pregunta del examen
+                    if (data.revision && data.revision.length) {
+                        renderizarRevision(data.revision);
+                    }
+
                     if (data.aprobado) {
-                        window.location.href = data.redirect;
+                        var div = document.getElementById('examen-resultado');
+                        div.style.display = 'block';
+                        div.innerHTML = '<div class="alert alert-success"><i class="fas fa-trophy mr-1"></i> ¡Examen aprobado! Puntaje: ' + data.puntaje + '% &mdash; Generando certificado...</div>';
+                        setTimeout(function() { window.location.href = data.redirect; }, 3500);
                     } else {
                         var div = document.getElementById('examen-resultado');
                         div.style.display = 'block';
-                        div.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle mr-1"></i> Examen no aprobado. Puntaje: ' + data.puntaje + '% (minimo ' + data.minimo + '%). Aciertos: ' + data.aciertos + '/' + data.total + '.</div>';
+                        div.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle mr-1"></i> Examen no aprobado. Puntaje: ' + data.puntaje + '% (minimo ' + data.minimo + '%). Aciertos: ' + data.aciertos + '/' + data.total + '.<br><small class="text-muted">Revisa las justificaciones arriba e intenta de nuevo.</small></div>'
+                            + '<button class="btn btn-outline-primary btn-sm mt-2" onclick="location.reload()"><i class="fas fa-redo mr-1"></i> Reintentar Examen</button>';
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Enviar Examen Final';
                     }

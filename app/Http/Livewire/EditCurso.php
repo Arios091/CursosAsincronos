@@ -105,9 +105,13 @@ class EditCurso extends Component
 
                 foreach ($cuestionario->preguntas->sortBy('orden') as $pregunta) {
                     $pregData = [
-                        'id' => $pregunta->id,
-                        'texto' => $pregunta->texto,
-                        'opciones' => [],
+                        'id'                  => $pregunta->id,
+                        'texto'               => $pregunta->texto,
+                        'justificacion'       => $pregunta->justificacion ?? '',
+                        'tiene_justificacion' => !is_null($pregunta->justificacion),
+                        'imagen_path'         => $pregunta->imagen,
+                        'imagen_archivo'      => null,
+                        'opciones'            => [],
                     ];
 
                     foreach ($pregunta->opciones->sortBy('orden') as $opcion) {
@@ -131,9 +135,13 @@ class EditCurso extends Component
 
             foreach ($curso->examenFinal->preguntas->sortBy('orden') as $pregunta) {
                 $pregData = [
-                    'id' => $pregunta->id,
-                    'texto' => $pregunta->texto,
-                    'opciones' => [],
+                    'id'                  => $pregunta->id,
+                    'texto'               => $pregunta->texto,
+                    'justificacion'       => $pregunta->justificacion ?? '',
+                    'tiene_justificacion' => !is_null($pregunta->justificacion),
+                    'imagen_path'         => $pregunta->imagen,
+                    'imagen_archivo'      => null,
+                    'opciones'            => [],
                 ];
 
                 foreach ($pregunta->opciones->sortBy('orden') as $opcion) {
@@ -209,8 +217,12 @@ class EditCurso extends Component
     public function addPreguntaCuestionario($modIdx)
     {
         $this->modulos[$modIdx]['cuestionario']['preguntas'][] = [
-            'id' => null,
-            'texto' => '',
+            'id'                  => null,
+            'texto'               => '',
+            'justificacion'       => '',
+            'tiene_justificacion' => true,
+            'imagen_path'         => null,
+            'imagen_archivo'      => null,
             'opciones' => [
                 ['id' => null, 'texto' => '', 'es_correcta' => false],
                 ['id' => null, 'texto' => '', 'es_correcta' => false],
@@ -254,8 +266,12 @@ class EditCurso extends Component
     public function addPreguntaExamen()
     {
         $this->examenFinal['preguntas'][] = [
-            'id' => null,
-            'texto' => '',
+            'id'                  => null,
+            'texto'               => '',
+            'justificacion'       => '',
+            'tiene_justificacion' => true,
+            'imagen_path'         => null,
+            'imagen_archivo'      => null,
             'opciones' => [
                 ['id' => null, 'texto' => '', 'es_correcta' => false],
                 ['id' => null, 'texto' => '', 'es_correcta' => false],
@@ -294,6 +310,36 @@ class EditCurso extends Component
         foreach ($this->examenFinal['preguntas'][$pregIdx]['opciones'] as $i => &$opcion) {
             $opcion['es_correcta'] = ($i === $opcIdx);
         }
+    }
+
+    public function toggleJustificacionCuestionario($modIdx, $pregIdx)
+    {
+        $actual = $this->modulos[$modIdx]['cuestionario']['preguntas'][$pregIdx]['tiene_justificacion'] ?? true;
+        $this->modulos[$modIdx]['cuestionario']['preguntas'][$pregIdx]['tiene_justificacion'] = !$actual;
+        if ($actual) {
+            $this->modulos[$modIdx]['cuestionario']['preguntas'][$pregIdx]['justificacion'] = '';
+        }
+    }
+
+    public function toggleJustificacionExamen($pregIdx)
+    {
+        $actual = $this->examenFinal['preguntas'][$pregIdx]['tiene_justificacion'] ?? true;
+        $this->examenFinal['preguntas'][$pregIdx]['tiene_justificacion'] = !$actual;
+        if ($actual) {
+            $this->examenFinal['preguntas'][$pregIdx]['justificacion'] = '';
+        }
+    }
+
+    public function quitarImagenPreguntaCuestionario($modIdx, $pregIdx)
+    {
+        $this->modulos[$modIdx]['cuestionario']['preguntas'][$pregIdx]['imagen_archivo'] = null;
+        $this->modulos[$modIdx]['cuestionario']['preguntas'][$pregIdx]['imagen_path'] = null;
+    }
+
+    public function quitarImagenPreguntaExamen($pregIdx)
+    {
+        $this->examenFinal['preguntas'][$pregIdx]['imagen_archivo'] = null;
+        $this->examenFinal['preguntas'][$pregIdx]['imagen_path'] = null;
     }
 
     public function validarTodo()
@@ -338,6 +384,9 @@ class EditCurso extends Component
                 if ($correctas !== 1) {
                     $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener exactamente 1 opcion correcta.';
                 }
+                if (!empty($pregunta['tiene_justificacion']) && empty(trim($pregunta['justificacion'] ?? ''))) {
+                    $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' requiere una justificacion (o desactivala).';
+                }
             }
         }
 
@@ -355,6 +404,9 @@ class EditCurso extends Component
             $correctas = collect($pregunta['opciones'])->where('es_correcta', true)->count();
             if ($correctas !== 1) {
                 $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del examen final debe tener exactamente 1 opcion correcta.';
+            }
+            if (!empty($pregunta['tiene_justificacion']) && empty(trim($pregunta['justificacion'] ?? ''))) {
+                $errores[] = 'La pregunta ' . ($pregIdx + 1) . ' del examen final requiere una justificacion (o desactivala).';
             }
         }
 
@@ -503,12 +555,23 @@ class EditCurso extends Component
             if ($cuestionario) {
                 $ordenPregunta = 1;
                 foreach ($cuestionarioData['preguntas'] as $preguntaData) {
+                    // Guardar imagen de pregunta si fue subida
+                    $imagenPreguntaPath = null;
+                    if (!empty($preguntaData['imagen_archivo']) && is_object($preguntaData['imagen_archivo'])
+                        && method_exists($preguntaData['imagen_archivo'], 'store')) {
+                        $imagenPreguntaPath = $preguntaData['imagen_archivo']->store('preguntas', 'public');
+                    } elseif (!empty($preguntaData['imagen_path'])) {
+                        $imagenPreguntaPath = $preguntaData['imagen_path'];
+                    }
+
                     if ($preguntaData['id']) {
                         $pregunta = PreguntaCuestionario::find($preguntaData['id']);
                         if ($pregunta) {
                             $pregunta->update([
-                                'texto' => $preguntaData['texto'],
-                                'orden' => $ordenPregunta++,
+                                'texto'         => $preguntaData['texto'],
+                                'justificacion' => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
+                                'imagen'        => $imagenPreguntaPath,
+                                'orden'         => $ordenPregunta++,
                             ]);
                             $cuestionarioPreguntaIds[] = $pregunta->id;
                         } else {
@@ -517,8 +580,10 @@ class EditCurso extends Component
                     } else {
                         $pregunta = PreguntaCuestionario::create([
                             'cuestionario_id' => $cuestionario->id,
-                            'texto' => $preguntaData['texto'],
-                            'orden' => $ordenPregunta++,
+                            'texto'           => $preguntaData['texto'],
+                            'justificacion'   => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
+                            'imagen'          => $imagenPreguntaPath,
+                            'orden'           => $ordenPregunta++,
                         ]);
                         $cuestionarioPreguntaIds[] = $pregunta->id;
                     }
@@ -570,12 +635,23 @@ class EditCurso extends Component
         if ($examenFinal) {
             $ordenPregunta = 1;
             foreach ($examenData['preguntas'] as $preguntaData) {
+                // Guardar imagen de pregunta si fue subida
+                $imagenPreguntaPath = null;
+                if (!empty($preguntaData['imagen_archivo']) && is_object($preguntaData['imagen_archivo'])
+                    && method_exists($preguntaData['imagen_archivo'], 'store')) {
+                    $imagenPreguntaPath = $preguntaData['imagen_archivo']->store('preguntas', 'public');
+                } elseif (!empty($preguntaData['imagen_path'])) {
+                    $imagenPreguntaPath = $preguntaData['imagen_path'];
+                }
+
                 if ($preguntaData['id']) {
                     $pregunta = PreguntaExamenFinal::find($preguntaData['id']);
                     if ($pregunta) {
                         $pregunta->update([
-                            'texto' => $preguntaData['texto'],
-                            'orden' => $ordenPregunta++,
+                            'texto'         => $preguntaData['texto'],
+                            'justificacion' => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
+                            'imagen'        => $imagenPreguntaPath,
+                            'orden'         => $ordenPregunta++,
                         ]);
                         $examenPreguntaIds[] = $pregunta->id;
                     } else {
@@ -584,8 +660,10 @@ class EditCurso extends Component
                 } else {
                     $pregunta = PreguntaExamenFinal::create([
                         'examen_final_id' => $examenFinal->id,
-                        'texto' => $preguntaData['texto'],
-                        'orden' => $ordenPregunta++,
+                        'texto'           => $preguntaData['texto'],
+                        'justificacion'   => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
+                        'imagen'          => $imagenPreguntaPath,
+                        'orden'           => $ordenPregunta++,
                     ]);
                     $examenPreguntaIds[] = $pregunta->id;
                 }
