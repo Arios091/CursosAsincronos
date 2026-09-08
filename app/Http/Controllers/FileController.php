@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class FileController extends Controller
 {
-    protected const IMAGE_FOLDERS = ['cursos', 'site', 'hero'];
+    protected const IMAGE_FOLDERS = ['cursos', 'site', 'hero', 'settings', 'preguntas'];
 
     public function __construct()
     {

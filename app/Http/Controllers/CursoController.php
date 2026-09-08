@@ -346,7 +346,7 @@ class CursoController extends Controller
                 'aprobado' => $aprobado,
             ]);
         } else {
-            ResultadoCuestionario::create([
+            $resultado = ResultadoCuestionario::create([
                 'user_id' => $user->id,
                 'material_id' => $material->id,
                 'intentos' => 1,
@@ -397,8 +397,8 @@ class CursoController extends Controller
                 'pregunta_id'    => $pregunta->id,
                 'pregunta_texto' => $pregunta->texto,
                 'acerto'         => $acerto,
-                'correcta_id'    => $correcta?->id,
-                'correcta_texto' => $correcta?->texto,
+                'correcta_id'    => $correcta ? $correcta->id : null,
+                'correcta_texto' => $correcta ? $correcta->texto : null,
                 'elegida_id'     => $respuestaId ? (int)$respuestaId : null,
                 'justificacion'  => $pregunta->justificacion,
                 'imagen'         => $pregunta->imagen ? \Storage::url($pregunta->imagen) : null,
@@ -419,7 +419,7 @@ class CursoController extends Controller
                 'aprobado' => $aprobado,
             ]);
         } else {
-            ResultadoCuestionario::create([
+            $resultado = ResultadoCuestionario::create([
                 'user_id' => $user->id,
                 'cuestionario_id' => $cuestionario->id,
                 'intentos' => 1,
@@ -465,8 +465,8 @@ class CursoController extends Controller
                 'pregunta_id'    => $pregunta->id,
                 'pregunta_texto' => $pregunta->texto,
                 'acerto'         => $acerto,
-                'correcta_id'    => $correcta?->id,
-                'correcta_texto' => $correcta?->texto,
+                'correcta_id'    => $correcta ? $correcta->id : null,
+                'correcta_texto' => $correcta ? $correcta->texto : null,
                 'elegida_id'     => $respuestaId ? (int)$respuestaId : null,
                 'justificacion'  => $pregunta->justificacion,
                 'imagen'         => $pregunta->imagen ? \Storage::url($pregunta->imagen) : null,
@@ -487,7 +487,7 @@ class CursoController extends Controller
                 'aprobado' => $aprobado,
             ]);
         } else {
-            ResultadoExamenFinal::create([
+            $resultado = ResultadoExamenFinal::create([
                 'user_id' => $user->id,
                 'examen_final_id' => $examenFinal->id,
                 'intentos' => 1,
