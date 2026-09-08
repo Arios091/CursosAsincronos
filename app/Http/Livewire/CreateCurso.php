@@ -342,7 +342,7 @@ class CreateCurso extends Component
             $imagenPath = $this->imagen;
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($imagenPath) {
+        $curso = \Illuminate\Support\Facades\DB::transaction(function () use ($imagenPath) {
             $curso = Curso::create([
                 'titulo' => $this->titulo,
                 'descripcion' => $this->descripcion,
@@ -459,6 +459,7 @@ class CreateCurso extends Component
             }
             
             $this->cursoId = $curso->id;
+            return $curso;
         });
 
         session()->flash('success', 'Curso creado exitosamente.');
