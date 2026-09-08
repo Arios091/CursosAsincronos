@@ -59,7 +59,7 @@
 
                 {{-- Paso 1: Informacion General --}}
                 @if($paso === 1)
-                <div>
+                <div wire:key="step-1">
                     <h5 class="font-weight-bold mb-4" style="color: #0B5E2E;">
                         <i class="fas fa-info-circle mr-1"></i> Informacion General
                     </h5>
@@ -115,7 +115,7 @@
 
                 {{-- Paso 2: Modulos --}}
                 @if($paso === 2)
-                <div>
+                <div wire:key="step-2">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="font-weight-bold mb-0" style="color: #0B5E2E;">
                             <i class="fas fa-layer-group mr-1"></i> Modulos y Materiales
@@ -133,7 +133,7 @@
                     @endif
 
                     @foreach($modulos as $modIdx => $modulo)
-                    <div class="card mb-3 border-{{ $modIdx % 2 === 0 ? 'success' : 'warning' }}">
+                    <div wire:key="modulo-{{ $modIdx }}" class="card mb-3 border-{{ $modIdx % 2 === 0 ? 'success' : 'warning' }}">
                         <div class="card-header d-flex justify-content-between align-items-center" style="background: #f8f9fa;">
                             <strong><i class="fas fa-cube mr-1" style="color: #0B5E2E;"></i> Modulo {{ $modIdx + 1 }}</strong>
                             <button class="btn btn-sm btn-outline-danger" type="button" onclick="showConfirm('Eliminar este modulo y todo su contenido?', function() { @this.call('removeModulo', {{ $modIdx }}); });">
@@ -172,7 +172,7 @@
                                 @endif
 
                                 @foreach($modulo['materiales'] as $matIdx => $material)
-                                <div class="border rounded p-2 mb-2 bg-white">
+                                <div wire:key="modulo-{{ $modIdx }}-material-{{ $matIdx }}" class="border rounded p-2 mb-2 bg-white">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <strong class="small">
                                             <i class="fas fa-{{ $material['tipo'] === 'video' ? 'video' : 'file-pdf' }} mr-1" style="color: {{ $material['tipo'] === 'video' ? '#0d6efd' : '#dc3545' }};"></i>
@@ -224,7 +224,7 @@
                                 @endif
 
                                 @foreach($modulo['cuestionario']['preguntas'] as $pregIdx => $pregunta)
-                                <div class="border rounded p-3 mb-2 bg-white">
+                                <div wire:key="modulo-{{ $modIdx }}-pregunta-{{ $pregIdx }}" class="border rounded p-3 mb-2 bg-white">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <strong class="small">Pregunta {{ $pregIdx + 1 }}</strong>
                                         <button class="btn btn-sm btn-outline-danger py-0 px-1" wire:click="removePreguntaCuestionario({{ $modIdx }}, {{ $pregIdx }})">
@@ -262,7 +262,7 @@
                                             </button>
                                         </div>
                                         @foreach($pregunta['opciones'] as $opcIdx => $opcion)
-                                        <div class="input-group input-group-sm mt-1">
+                                        <div wire:key="modulo-{{ $modIdx }}-pregunta-{{ $pregIdx }}-opcion-{{ $opcIdx }}" class="input-group input-group-sm mt-1">
                                             <div class="input-group-prepend">
                                                 <div class="input-group-text bg-white">
                                                     <input type="radio" name="correcta_q_{{ $modIdx }}_{{ $pregIdx }}"
@@ -311,7 +311,7 @@
 
                 {{-- Paso 3: Examen Final --}}
                 @if($paso === 3)
-                <div>
+                <div wire:key="step-3">
                     <h5 class="font-weight-bold mb-4" style="color: #0B5E2E;">
                         <i class="fas fa-graduation-cap mr-1"></i> Examen Final del Curso
                     </h5>
@@ -342,7 +342,7 @@
                     @endif
 
                     @foreach($examenFinal['preguntas'] as $pregIdx => $pregunta)
-                    <div class="card mb-3 border-warning">
+                    <div wire:key="examen-pregunta-{{ $pregIdx }}" class="card mb-3 border-warning">
                         <div class="card-header d-flex justify-content-between align-items-center" style="background: #fff8e1;">
                             <strong><i class="fas fa-question-circle mr-1" style="color: #C9A227;"></i> Pregunta {{ $pregIdx + 1 }}</strong>
                             <button class="btn btn-sm btn-outline-danger" wire:click="removePreguntaExamen({{ $pregIdx }})">
@@ -382,7 +382,7 @@
                                     </button>
                                 </div>
                                 @foreach($pregunta['opciones'] as $opcIdx => $opcion)
-                                <div class="input-group mb-1">
+                                <div wire:key="examen-pregunta-{{ $pregIdx }}-opcion-{{ $opcIdx }}" class="input-group mb-1">
                                     <div class="input-group-prepend">
                                         <div class="input-group-text bg-white">
                                             <input type="radio" name="correcta_e_{{ $pregIdx }}"
@@ -470,13 +470,16 @@
 
                 {{-- Navegacion --}}
                 <div class="d-flex justify-content-between mt-4 pt-3 border-top">
-                    @if($paso > 1)
-                    <button class="btn btn-outline-secondary" wire:click="pasoAnterior">
-                        <i class="fas fa-arrow-left"></i> Anterior
-                    </button>
-                    @else
-                    <div></div>
-                    @endif
+                    <div>
+                        @if($paso > 1)
+                        <button class="btn btn-outline-secondary mr-2" wire:click="pasoAnterior">
+                            <i class="fas fa-arrow-left"></i> Anterior
+                        </button>
+                        @endif
+                        <a href="{{ route('cursos.index') }}" class="btn btn-outline-danger" onclick="return confirm('¿Estás seguro que deseas cancelar? Se perderán todos los datos no guardados.')">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                    </div>
 
                     @if($paso < 3)
                     <button class="btn text-white font-weight-bold px-4" style="background: #0B5E2E;" wire:click="siguientePaso">

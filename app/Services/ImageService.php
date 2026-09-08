@@ -11,8 +11,8 @@ class ImageService
     public const CURSO_WIDTH = 800;
     public const CURSO_HEIGHT = 450;
 
-    public const HERO_WIDTH = 1920;
-    public const HERO_HEIGHT = 600;
+    public const HERO_WIDTH = 1080;
+    public const HERO_HEIGHT = 560;
 
     public const FAVICON_SIZE = 32;
 
@@ -55,16 +55,15 @@ class ImageService
             $prevMemory = ini_get('memory_limit');
             ini_set('memory_limit', '256M');
 
-            // Create destination image\n
+            // Create destination image
             $dst = imagecreatetruecolor($width, $height);
 
-            // Handle transparency for PNG/WebP
-            if ($mode === 'fit') {
-                // Fill with background color
-                $bg = $this->hexToRgb($bgColor);
-                $bgColorAllocated = imagecolorallocate($dst, $bg['r'], $bg['g'], $bg['b']);
-                imagefill($dst, 0, 0, $bgColorAllocated);
+            // Handle transparency for PNG/WebP (Fill with background color for both fit and cover)
+            $bg = $this->hexToRgb($bgColor);
+            $bgColorAllocated = imagecolorallocate($dst, $bg['r'], $bg['g'], $bg['b']);
+            imagefill($dst, 0, 0, $bgColorAllocated);
 
+            if ($mode === 'fit') {
                 // Calculate fit dimensions maintaining aspect ratio
                 $ratio = min($width / $srcW, $height / $srcH);
                 $newW = (int)($srcW * $ratio);
@@ -107,8 +106,6 @@ class ImageService
             }
             if (!$saved && function_exists('imagejpeg')) {
                 $jpegPath = sys_get_temp_dir() . '/' . Str::uuid() . '.jpg';
-                $white = imagecolorallocate($dst, 255, 255, 255);
-                imagefilledrectangle($dst, 0, 0, $width - 1, $height - 1, $white);
                 if (@imagejpeg($dst, $jpegPath, 88) && @file_exists($jpegPath) && @filesize($jpegPath) > 0) {
                     $savedPath = $jpegPath;
                     $saved = true;

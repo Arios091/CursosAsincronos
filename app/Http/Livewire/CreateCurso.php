@@ -258,6 +258,16 @@ class CreateCurso extends Component
                 if ($material['tipo'] === 'video' && empty($material['url'])) {
                     $errores[] = 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener una URL.';
                 }
+                if ($material['tipo'] === 'pdf') {
+                    if (empty($material['archivo'])) {
+                        $errores[] = 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener un archivo PDF adjunto.';
+                    } elseif (is_object($material['archivo'])) {
+                        $ext = strtolower(method_exists($material['archivo'], 'getClientOriginalExtension') ? $material['archivo']->getClientOriginalExtension() : $material['archivo']->extension());
+                        if ($ext !== 'pdf') {
+                            $errores[] = 'El archivo del material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe ser formato PDF.';
+                        }
+                    }
+                }
             }
 
             $preguntas = $modulo['cuestionario']['preguntas'];
@@ -332,70 +342,105 @@ class CreateCurso extends Component
             $imagenPath = $this->imagen;
         }
 
-        $curso = Curso::create([
-            'titulo' => $this->titulo,
-            'descripcion' => $this->descripcion,
-            'imagen' => $imagenPath,
-            'estado' => 'publicado',
-            'user_id' => auth()->id(),
-            'audiencia' => $this->audiencia,
-            'horas' => $this->horas,
-        ]);
-
-        $ordenModulo = 1;
-        foreach ($this->modulos as $moduloData) {
-            $modulo = Modulo::create([
-                'curso_id' => $curso->id,
-                'titulo' => $moduloData['titulo'],
-                'descripcion' => $moduloData['descripcion'] ?? '',
-                'orden' => $ordenModulo++,
+        \Illuminate\Support\Facades\DB::transaction(function () use ($imagenPath) {
+            $curso = Curso::create([
+                'titulo' => $this->titulo,
+                'descripcion' => $this->descripcion,
+                'imagen' => $imagenPath,
+                'estado' => 'publicado',
+                'user_id' => auth()->id(),
+                'audiencia' => $this->audiencia,
+                'horas' => $this->horas,
             ]);
 
-            $ordenMaterial = 1;
-            foreach ($moduloData['materiales'] as $materialData) {
-                $archivoPath = null;
-                if (isset($materialData['archivo']) && $materialData['archivo']) {
-                    if (is_object($materialData['archivo']) && method_exists($materialData['archivo'], 'store')) {
-                        $this->validarArchivoMaterial($materialData['archivo']);
-                        $archivoPath = $materialData['archivo']->store('materiales', 'public');
-                        if ($archivoPath) {
-                            $paginas = $this->contarPaginasPdf($archivoPath);
-                            if ($paginas > 100) {
-                                $this->avisosPdf[] = 'El PDF "' . ($materialData['titulo'] ?? '') . '" tiene ' . $paginas . ' paginas. Es muy largo y puede tardar en cargar.';
+            $ordenModulo = 1;
+            foreach ($this->modulos as $moduloData) {
+                $modulo = Modulo::create([
+                    'curso_id' => $curso->id,
+                    'titulo' => $moduloData['titulo'],
+                    'descripcion' => $moduloData['descripcion'] ?? '',
+                    'orden' => $ordenModulo++,
+                ]);
+
+                $ordenMaterial = 1;
+                foreach ($moduloData['materiales'] as $materialData) {
+                    $archivoPath = null;
+                    if (isset($materialData['archivo']) && $materialData['archivo']) {
+                        if (is_object($materialData['archivo']) && method_exists($materialData['archivo'], 'store')) {
+                            // Validation is now done in validarTodo()
+                            $archivoPath = $materialData['archivo']->store('materiales', 'public');
+                            if ($archivoPath) {
+                                $paginas = $this->contarPaginasPdf($archivoPath);
+                                if ($paginas > 100) {
+                                    $this->avisosPdf[] = 'El PDF "' . ($materialData['titulo'] ?? '') . '" tiene ' . $paginas . ' paginas. Es muy largo y puede tardar en cargar.';
+                                }
                             }
+                        } elseif (is_string($materialData['archivo'])) {
+                            $archivoPath = $materialData['archivo'];
                         }
-                    } elseif (is_string($materialData['archivo'])) {
-                        $archivoPath = $materialData['archivo'];
                     }
+
+                    Material::create([
+                        'modulo_id' => $modulo->id,
+                        'titulo' => $materialData['titulo'],
+                        'tipo' => $materialData['tipo'],
+                        'url' => $materialData['url'] ?? null,
+                        'archivo' => $archivoPath,
+                        'orden' => $ordenMaterial++,
+                    ]);
                 }
 
-                Material::create([
+                $cuestionario = Cuestionario::create([
                     'modulo_id' => $modulo->id,
-                    'titulo' => $materialData['titulo'],
-                    'tipo' => $materialData['tipo'],
-                    'url' => $materialData['url'] ?? null,
-                    'archivo' => $archivoPath,
-                    'orden' => $ordenMaterial++,
+                    'titulo' => $moduloData['cuestionario']['titulo'] ?: 'Cuestionario',
+                    'min_aprobacion' => 100,
                 ]);
+
+                $ordenPregunta = 1;
+                foreach ($moduloData['cuestionario']['preguntas'] as $preguntaData) {
+                    // Guardar imagen de pregunta si fue subida
+                    $imagenPreguntaPath = null;
+                    if (!empty($preguntaData['imagen_archivo']) && is_object($preguntaData['imagen_archivo'])
+                        && method_exists($preguntaData['imagen_archivo'], 'store')) {
+                        $imagenPreguntaPath = $preguntaData['imagen_archivo']->store('preguntas', 'public');
+                    }
+
+                    $pregunta = PreguntaCuestionario::create([
+                        'cuestionario_id' => $cuestionario->id,
+                        'texto'           => $preguntaData['texto'],
+                        'justificacion'   => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
+                        'imagen'          => $imagenPreguntaPath,
+                        'orden'           => $ordenPregunta++,
+                    ]);
+
+                    $ordenOpcion = 1;
+                    foreach ($preguntaData['opciones'] as $opcionData) {
+                        OpcionPregunta::create([
+                            'pregunta_id' => $pregunta->id,
+                            'texto'       => $opcionData['texto'],
+                            'es_correcta' => $opcionData['es_correcta'],
+                            'orden'       => $ordenOpcion++,
+                        ]);
+                    }
+                }
             }
 
-            $cuestionario = Cuestionario::create([
-                'modulo_id' => $modulo->id,
-                'titulo' => $moduloData['cuestionario']['titulo'] ?: 'Cuestionario',
-                'min_aprobacion' => 100,
+            $examenFinal = ExamenFinal::create([
+                'curso_id' => $curso->id,
+                'titulo' => $this->examenFinal['titulo'] ?: 'Examen Final',
+                'min_aprobacion' => 80,
             ]);
 
             $ordenPregunta = 1;
-            foreach ($moduloData['cuestionario']['preguntas'] as $preguntaData) {
-                // Guardar imagen de pregunta si fue subida
+            foreach ($this->examenFinal['preguntas'] as $preguntaData) {
                 $imagenPreguntaPath = null;
                 if (!empty($preguntaData['imagen_archivo']) && is_object($preguntaData['imagen_archivo'])
                     && method_exists($preguntaData['imagen_archivo'], 'store')) {
                     $imagenPreguntaPath = $preguntaData['imagen_archivo']->store('preguntas', 'public');
                 }
 
-                $pregunta = PreguntaCuestionario::create([
-                    'cuestionario_id' => $cuestionario->id,
+                $pregunta = PreguntaExamenFinal::create([
+                    'examen_final_id' => $examenFinal->id,
                     'texto'           => $preguntaData['texto'],
                     'justificacion'   => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
                     'imagen'          => $imagenPreguntaPath,
@@ -404,7 +449,7 @@ class CreateCurso extends Component
 
                 $ordenOpcion = 1;
                 foreach ($preguntaData['opciones'] as $opcionData) {
-                    OpcionPregunta::create([
+                    OpcionExamenFinal::create([
                         'pregunta_id' => $pregunta->id,
                         'texto'       => $opcionData['texto'],
                         'es_correcta' => $opcionData['es_correcta'],
@@ -412,40 +457,9 @@ class CreateCurso extends Component
                     ]);
                 }
             }
-        }
-
-        $examenFinal = ExamenFinal::create([
-            'curso_id' => $curso->id,
-            'titulo' => $this->examenFinal['titulo'] ?: 'Examen Final',
-            'min_aprobacion' => 80,
-        ]);
-
-        $ordenPregunta = 1;
-        foreach ($this->examenFinal['preguntas'] as $preguntaData) {
-            $imagenPreguntaPath = null;
-            if (!empty($preguntaData['imagen_archivo']) && is_object($preguntaData['imagen_archivo'])
-                && method_exists($preguntaData['imagen_archivo'], 'store')) {
-                $imagenPreguntaPath = $preguntaData['imagen_archivo']->store('preguntas', 'public');
-            }
-
-            $pregunta = PreguntaExamenFinal::create([
-                'examen_final_id' => $examenFinal->id,
-                'texto'           => $preguntaData['texto'],
-                'justificacion'   => !empty($preguntaData['tiene_justificacion']) ? ($preguntaData['justificacion'] ?? null) : null,
-                'imagen'          => $imagenPreguntaPath,
-                'orden'           => $ordenPregunta++,
-            ]);
-
-            $ordenOpcion = 1;
-            foreach ($preguntaData['opciones'] as $opcionData) {
-                OpcionExamenFinal::create([
-                    'pregunta_id' => $pregunta->id,
-                    'texto'       => $opcionData['texto'],
-                    'es_correcta' => $opcionData['es_correcta'],
-                    'orden'       => $ordenOpcion++,
-                ]);
-            }
-        }
+            
+            $this->cursoId = $curso->id;
+        });
 
         session()->flash('success', 'Curso creado exitosamente.');
 

@@ -366,6 +366,16 @@ class EditCurso extends Component
                 if ($material['tipo'] === 'video' && empty($material['url'])) {
                     $errores[] = 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener una URL.';
                 }
+                if ($material['tipo'] === 'pdf') {
+                    if (empty($material['archivo']) && empty($material['archivo_nuevo'])) {
+                        $errores[] = 'El material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe tener un archivo PDF adjunto.';
+                    } elseif (!empty($material['archivo_nuevo']) && is_object($material['archivo_nuevo'])) {
+                        $ext = strtolower(method_exists($material['archivo_nuevo'], 'getClientOriginalExtension') ? $material['archivo_nuevo']->getClientOriginalExtension() : $material['archivo_nuevo']->extension());
+                        if ($ext !== 'pdf') {
+                            $errores[] = 'El archivo nuevo del material ' . ($matIdx + 1) . ' del modulo ' . ($modIdx + 1) . ' debe ser formato PDF.';
+                        }
+                    }
+                }
             }
 
             $preguntas = $modulo['cuestionario']['preguntas'];
@@ -433,6 +443,9 @@ class EditCurso extends Component
 
         $curso = Curso::findOrFail($this->curso_id);
 
+        \Illuminate\Support\Facades\DB::transaction(function () use ($curso) {
+
+
         $imagenPath = $this->imagenActual;
         if ($this->imagen && is_object($this->imagen) && method_exists($this->imagen, 'store')) {
             if ($curso->imagen) {
@@ -490,7 +503,7 @@ class EditCurso extends Component
                 $archivoPath = null;
                 if (isset($materialData['archivo_nuevo']) && $materialData['archivo_nuevo']) {
                     if (is_object($materialData['archivo_nuevo']) && method_exists($materialData['archivo_nuevo'], 'store')) {
-                        $this->validarArchivoMaterial($materialData['archivo_nuevo']);
+                        // $this->validarArchivoMaterial($materialData['archivo_nuevo']); // Ya validado en validarTodo
                         $archivoPath = $materialData['archivo_nuevo']->store('materiales', 'public');
                         if ($archivoPath) {
                             $paginas = $this->contarPaginasPdf($archivoPath);
@@ -695,6 +708,7 @@ class EditCurso extends Component
 
         // Delete removed items (those not in the current form data)
         $this->eliminarRemovidos($curso, $moduloIds, $materialIds, $cuestionarioPreguntaIds, $cuestionarioOpcionIds, $examenPreguntaIds, $examenOpcionIds);
+        });
 
         session()->flash('success', 'Curso actualizado exitosamente.');
 
